@@ -1,0 +1,2064 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Weekly Employee Schedule</title>
+
+    <head>
+        <!-- BOOTSTRAP -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+            integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+            crossorigin="anonymous"></script>
+        <!-- SWEETALERT2 -->
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5/dist/sweetalert2.all.min.js"></script>
+        <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.14.5/dist/sweetalert2.min.css" rel="stylesheet">
+
+        <!-- FLATPICKR -->
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    </head>
+    <style>
+        :root {
+            --chhj-orange: #D9782D;
+            /*--chhj-green: #2C673C;*/
+            --chhj-green: #158E52;
+        }
+
+        /*
+            CHHJ COLORS
+        */
+        .chhj-orange {
+            color: var(--chhj-orange);
+        }
+
+        .chhj-green {
+            color: var(--chhj-green);
+        }
+
+        .chhj-hide {
+            /*visibility:hidden;*/
+            display: none !important;
+        }
+
+        .chhj-show {
+            /*visibility:hidden;*/
+            display: inline;
+        }
+
+        .chhj-orange-background {
+            background-color: var(--chhj-orange);
+        }
+
+        .chhj-green-background {
+            background-color: var(--chhj-green);
+        }
+
+        /*  CUSTOM LOADER ANIMVATIONS --------------------------------------------------------------------------------------------
+    
+        <div class="chhj-loader chhj-loader-segment"></div>
+
+        <div class="chhj-loader chhj-loader-rings"></div>
+
+        <div class="chhj-loader chhj-loader-flip"></div>
+
+        <div class="chhj-loader chhj-loader-morph"></div>
+
+        <div class="chhj-loader chhj-loader-grid">
+                <div>&nbsp;</div><div>&nbsp;</div><div>&nbsp;</div>
+                <div>&nbsp;</div><div>&nbsp;</div><div>&nbsp;</div>
+                <div>&nbsp;</div><div>&nbsp;</div><div>&nbsp;</div>
+        </div>
+
+        <div class="chhj-loader chhj-loader-rotating-dots">
+            <div>&nbsp;</div><div>&nbsp;</div><div>&nbsp;</div><div>&nbsp;</div>
+        </div>
+
+        <div class="chhj-loader chhj-loader-fading-lines">
+            <div>&nbsp;</div><div>&nbsp;</div><div>&nbsp;</div>
+        </div>
+
+        <div class="chhj-loader chhj-loader-circular-swipe"></div>
+
+        */
+
+        .chhj-loader {
+            width: 25px;
+            height: 25px;
+            margin: 20px;
+        }
+
+        /* Variation 1: Rotating Segments */
+        .chhj-loader-segment {
+            border-radius: 50%;
+            position: relative;
+            animation: chhj-rotate-segment 1s linear infinite;
+        }
+
+        .chhj-loader-segment::before,
+        .chhj-loader-segment::after {
+            content: '';
+            position: absolute;
+            border: 8px solid transparent;
+            border-top-color: var(--chhj-orange);
+            border-radius: 50%;
+            top: -8px;
+            left: -8px;
+            right: -8px;
+            bottom: -8px;
+        }
+
+        .chhj-loader-segment::after {
+            border-top-color: var(--chhj-green);
+            transform: rotate(120deg);
+        }
+
+        @keyframes chhj-rotate-segment {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Variation 2: Expanding Rings */
+        .chhj-loader-rings {
+            border-radius: 50%;
+            position: relative;
+        }
+
+        .chhj-loader-rings::before,
+        .chhj-loader-rings::after {
+            content: '';
+            position: absolute;
+            border: 4px solid var(--chhj-orange);
+            border-radius: 50%;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            animation: chhj-expand-ring 1.5s ease-out infinite;
+        }
+
+        .chhj-loader-rings::after {
+            animation-delay: 0.75s;
+        }
+
+        @keyframes chhj-expand-ring {
+            0% {
+                transform: scale(0.1);
+                opacity: 1;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 0;
+            }
+        }
+
+        /* Variation 3: Flipping Square */
+        .chhj-loader-flip {
+            background-color: var(--chhj-green);
+            animation: chhj-flip-square 1.2s ease-in-out infinite;
+        }
+
+        @keyframes chhj-flip-square {
+            0% {
+                transform: perspective(150px) rotateY(0deg);
+            }
+
+            50% {
+                transform: perspective(150px) rotateY(180deg);
+            }
+
+            100% {
+                transform: perspective(150px) rotateY(360deg);
+            }
+        }
+
+        /* Variation 4: Morphing Shape */
+        .chhj-loader-morph {
+            background-color: var(--chhj-orange);
+            animation: chhj-morph-shape 3s ease-in-out infinite;
+        }
+
+        @keyframes chhj-morph-shape {
+
+            0%,
+            100% {
+                border-radius: 50%;
+                transform: rotate(0deg);
+            }
+
+            25% {
+                border-radius: 0;
+                transform: rotate(45deg);
+            }
+
+            50% {
+                border-radius: 50% 0 50% 0;
+                transform: rotate(0deg);
+            }
+
+            75% {
+                border-radius: 0 50% 0 50%;
+                transform: rotate(-45deg);
+            }
+        }
+
+        /* Variation 5: Pulsing Grid */
+        .chhj-loader-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+        }
+
+        .chhj-loader-grid div {
+            width: 14px;
+            height: 14px;
+            background-color: var(--chhj-green);
+            animation: chhj-pulse-grid 1.5s ease infinite;
+        }
+
+        .chhj-loader-grid div:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .chhj-loader-grid div:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        .chhj-loader-grid div:nth-child(4) {
+            animation-delay: 0.1s;
+        }
+
+        .chhj-loader-grid div:nth-child(5) {
+            animation-delay: 0.3s;
+        }
+
+        .chhj-loader-grid div:nth-child(6) {
+            animation-delay: 0.5s;
+        }
+
+        .chhj-loader-grid div:nth-child(7) {
+            animation-delay: 0s;
+        }
+
+        .chhj-loader-grid div:nth-child(8) {
+            animation-delay: 0.2s;
+        }
+
+        .chhj-loader-grid div:nth-child(9) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes chhj-pulse-grid {
+
+            0%,
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(0.5);
+                opacity: 0.7;
+            }
+        }
+
+        /* Variation 6: Rotating Dots */
+        .chhj-loader-rotating-dots {
+            position: relative;
+        }
+
+        .chhj-loader-rotating-dots div {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: var(--chhj-orange);
+            animation: chhj-rotate-dots 1.2s linear infinite;
+        }
+
+        .chhj-loader-rotating-dots div:nth-child(1) {
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .chhj-loader-rotating-dots div:nth-child(2) {
+            top: 50%;
+            right: 0;
+            transform: translateY(-50%);
+        }
+
+        .chhj-loader-rotating-dots div:nth-child(3) {
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .chhj-loader-rotating-dots div:nth-child(4) {
+            top: 50%;
+            left: 0;
+            transform: translateY(-50%);
+        }
+
+        @keyframes chhj-rotate-dots {
+            0% {
+                transform: rotate(0deg) translateX(20px) rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg) translateX(20px) rotate(-360deg);
+            }
+        }
+
+        /* Variation 7: Fading Lines */
+        .chhj-loader-fading-lines {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .chhj-loader-fading-lines div {
+            width: 50px;
+            height: 8px;
+            background-color: var(--chhj-green);
+            animation: chhj-fade-lines 1s ease-in-out infinite;
+        }
+
+        .chhj-loader-fading-lines div:nth-child(2) {
+            animation-delay: 0.25s;
+        }
+
+        .chhj-loader-fading-lines div:nth-child(3) {
+            animation-delay: 0.5s;
+        }
+
+        @keyframes chhj-fade-lines {
+
+            0%,
+            100% {
+                opacity: 0.3;
+            }
+
+            50% {
+                opacity: 1;
+            }
+        }
+
+        /* Variation 8: Circular Swipe */
+        .chhj-loader-circular-swipe {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--chhj-orange);
+            border-radius: 50%;
+            animation: chhj-circular-swipe 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+        }
+
+        @keyframes chhj-circular-swipe {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .hunkpro-scheduler {
+            margin: 40px;
+            font-family: Arial, sans-serif;
+        }
+
+        .hunkpro-calendar {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        /* Hide time slots */
+        .fc .fc-timeline-slot-minor {
+            display: none !important;
+        }
+
+        .fc .fc-timeline-slot-major {
+            display: none !important;
+        }
+
+        /* Resource area styling */
+        .hunkpro-resource-content {
+            display: flex;
+            flex-direction: column;
+            padding: 4px 8px;
+            gap: 4px;
+        }
+
+        .hunkpro-employee-name {
+            font-weight: bold;
+        }
+
+        .hunkpro-shift-count {
+            font-size: 0.85em;
+            color: #666;
+        }
+
+        .hunkpro-add-shift {
+            font-size: 0.85em;
+            color: #666;
+            letter-spacing: 2px;
+        }
+
+        /* Modal styling */
+        .hunkpro-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .hunkpro-modal-content {
+            background-color: white;
+            margin: 15% auto;
+            padding: 20px;
+            border-radius: 5px;
+            width: 300px;
+            position: relative;
+        }
+
+        .hunkpro-close {
+            float: right;
+            cursor: pointer;
+            font-size: 20px;
+        }
+
+        .hunkpro-form-group {
+            margin-bottom: 15px;
+        }
+
+        .hunkpro-form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .hunkpro-form-group select,
+        .hunkpro-form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        /* Position colors remain the same */
+        .hunkpro-shift-closer {
+            background-color: #E67E22 !important;
+            border-color: #D35400 !important;
+            color: white !important;
+        }
+
+        .hunkpro-shift-morningdispatch {
+            background-color: #F39C12 !important;
+            border-color: #E67E22 !important;
+            color: white !important;
+        }
+
+        .hunkpro-shift-trainer {
+            background-color: #D35400 !important;
+            border-color: #A04000 !important;
+            color: white !important;
+        }
+
+        .hunkpro-shift-estimator {
+            background-color: #27AE60 !important;
+            border-color: #229954 !important;
+            color: white !important;
+        }
+
+        .hunkpro-shift-captainpaperworkonly {
+            background-color: #2ECC71 !important;
+            border-color: #27AE60 !important;
+            color: white !important;
+        }
+
+        .hunkpro-shift-captaindriveronly {
+            background-color: #16A085 !important;
+            border-color: #0E6655 !important;
+            color: white !important;
+        }
+
+        .hunkpro-shift-captainfull {
+            background-color: #1E8449 !important;
+            border-color: #196F3D !important;
+            color: white !important;
+        }
+
+        .hunkpro-shift-wingman {
+            background-color: #FDA172 !important;
+            border-color: #FB8C00 !important;
+            color: white !important;
+        }
+
+        /* Updated Availability status colors with positive vacation tone */
+        .hunkpro-unavailable-vacation {
+            background-color: #87CEEB !important;
+            /* Sky blue - peaceful, relaxing */
+            border-color: #4FB4DE !important;
+            color: #2C5D73 !important;
+            /* Darker blue for better text contrast */
+            opacity: 0.85 !important;
+        }
+
+        .hunkpro-unavailable-regular {
+            background-color: #E8E8E8 !important;
+            border-color: #D3D3D3 !important;
+            color: #666 !important;
+            opacity: 0.85 !important;
+        }
+
+        .hunkpro-unavailable-injury {
+            background-color: #FFE4B5 !important;
+            border-color: #FFA500 !important;
+            color: #333 !important;
+            opacity: 0.85 !important;
+        }
+
+        .hunkpro-unavailable-emergency {
+            background-color: #FFB6B6 !important;
+            border-color: #FF6B6B !important;
+            color: #333 !important;
+            opacity: 0.85 !important;
+        }
+
+        .hunkpro-unavailable-suspension {
+            background-color: #B0C4DE !important;
+            border-color: #4682B4 !important;
+            color: #333 !important;
+            opacity: 0.85 !important;
+        }
+
+        .hunkpro-unavailable-text {
+            font-size: 0.8rem !important;
+            padding-left: 12px;
+            padding-right: 12px;
+            font-weight: 500 !important;
+            text-shadow: 0 1px 1px rgba(255, 255, 255, 0.5) !important;
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            /* text-align: center !important; */
+        }
+
+        /* Header styling */
+        .fc-timeline-header-row {
+            height: auto !important;
+        }
+
+        .hunkpro-day-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 4px;
+            gap: 2px;
+        }
+
+        .hunkpro-day-name {
+            font-weight: bold;
+        }
+
+        .hunkpro-day-date {
+            font-size: 0.9em;
+        }
+
+        .hunkpro-daily-count {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 2px;
+        }
+
+        /* Fix alignment of resource area */
+        .fc .fc-resource-timeline-divider {
+            width: 1px !important;
+            background: #ddd;
+        }
+
+        .fc .fc-resource-timeline td {
+            padding: 4px 2px;
+        }
+
+        .hunkpro-header-count {
+            font-size: 0.85em;
+            color: #666;
+            text-align: center;
+            margin-top: 2px;
+        }
+
+        .fc .fc-timeline-header-row-chrono th {
+            padding: 4px;
+        }
+
+        /* Base cell styling */
+        .fc th,
+        .fc td {
+            border: 1px solid #ddd !important;
+            border-collapse: collapse !important;
+        }
+
+        /* Resource area and divider */
+        .fc .fc-resource-timeline-divider {
+            width: 2px !important;
+            background: #ddd !important;
+            border-right: 1px solid #ddd !important;
+        }
+
+        .fc .fc-resource-area {
+            width: 200px !important;
+        }
+
+        .fc .fc-resource-area td {
+            padding: 8px !important;
+            border: 1px solid #ddd !important;
+        }
+
+        /* Header styling */
+        .fc .fc-timeline-header {
+            border: 1px solid #ddd !important;
+        }
+
+        .fc .fc-timeline-header-row th {
+            padding: 8px !important;
+            text-align: center !important;
+            border: 1px solid #ddd !important;
+        }
+
+        /* Grid and slots */
+        .fc .fc-timeline-slots td {
+            border: 1px solid #ddd !important;
+            padding: 0 !important;
+        }
+
+        .fc .fc-timeline-slot {
+            min-width: 150px !important;
+            max-width: 150px !important;
+        }
+
+        /* Event alignment */
+        .fc-timeline-event {
+            margin: 0 !important;
+        }
+
+        .fc-timeline-event-harness {
+            margin: 0 !important;
+        }
+
+        /* Overall table border */
+        .fc-timeline {
+            border: 1px solid #ddd !important;
+        }
+
+        /* Hide time slots that we don't need */
+        .fc .fc-timeline-slot-minor {
+            display: none !important;
+        }
+
+        .fc .fc-timeline-slot-major {
+            display: none !important;
+        }
+
+
+        .modal-footer {
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        #form-error {
+            width: 100%;
+            color: #dc3545;
+            margin-bottom: 10px;
+            text-align: left;
+        }
+
+        #form-options {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
+        #form-loader {
+            display: none;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .loader-message {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        /* Ensure proper spacing between buttons */
+        #form-options .btn {
+            margin-left: 8px;
+        }
+
+        .fc-refresh-button {
+            min-width: 100px;
+            transition: opacity 0.3s ease;
+        }
+
+        .fc-refresh-button:disabled {
+            opacity: 1 !important;
+            cursor: default;
+        }
+
+        .fc-refresh-button .chhj-loader {
+            display: inline-block;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="hunkpro-scheduler">
+
+        <div id="hunkpro-calendar"></div>
+
+        <div id="hunkpro-shift-modal" class="modal fade" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="hunkpro-modal-title">Add Shift</h5>
+                        <button type="button" class="btn-close hunkpro-close" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <form id="hunkpro-shift-form">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Date:</label>
+                                <input type="text" class="form-control" id="hunkpro-shift-date" readonly>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Employee:</label>
+                                <input type="text" class="form-control" id="hunkpro-shift-employee" readonly>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Position:</label>
+                                <select class="form-select" id="hunkpro-shift-position" required>
+                                    <option value="">Select Position</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <div id="form-error"></div>
+                            <div id="form-options">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="submit" class="btn btn-primary">Save Shift</button>
+                            </div>
+                            <div id="form-loader" class="chhj-hide" style="display: none !important;">
+                                <span class="loader-message"></span>
+                                <div class="chhj-loader chhj-loader-segment"></div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            window.HunkProScheduler = {
+                FullCalendar: null,
+                calendar: null,
+                shifts: [], // Store shifts data
+                availability: [], // Store availability data
+                tb_app_id: 'VWQWR8A9NZ',
+                tb_app_key: 'GzkHdwxG3lKE',
+                tb_app_secret: 'g8qR0yK8Jv8pW8Op8T1vtxJkBFC8d8pp',
+
+                overrideDates: new Map(),
+
+                init: function () {
+                    // Add jQuery dependency before FullCalendar
+                    const jqueryScript = document.createElement('script');
+                    jqueryScript.src = 'https://code.jquery.com/jquery-3.6.0.min.js';
+                    jqueryScript.onload = () => {
+                        const scriptElement = document.createElement('script');
+                        scriptElement.src = 'https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@6.1.15/index.global.min.js';
+                        scriptElement.onload = () => {
+                            this.FullCalendar = window.FullCalendar;
+                            window.FullCalendar = null;
+                            this.loadData();
+                        };
+                        document.head.appendChild(scriptElement);
+                    };
+                    document.head.appendChild(jqueryScript);
+                },
+
+                fetchEmployees: function () {
+                    return new Promise((resolve, reject) => {
+                        $.ajax({
+                            "url": `https://api.tadabase.io/api/v1/data-tables/4MXQJdrZ6v/records?filters[items][0][field_id]=field_427&filters[items][0][operator]=contains_any&filters[items][0][val]=Truck Operations&filters[items][1][field_id]=status&filters[items][1][operator]=is&filters[items][1][val]=Active`,
+                            "method": "GET",
+                            "timeout": 0,
+                            "headers": {
+                                "X-Tadabase-App-id": this.tb_app_id,
+                                "X-Tadabase-App-Key": this.tb_app_key,
+                                "X-Tadabase-App-Secret": this.tb_app_secret
+                            },
+                            "processData": false,
+                            "mimeType": "multipart/form-data",
+                            "contentType": false,
+                            success: function (data) {
+                                const parsedData = JSON.parse(data);
+                                // console.log('Employees', parsedData);
+                                const users = parsedData.items.map(item => ({
+                                    id: item.id,
+                                    title: item.name,
+                                    extendedProps: {
+                                        department: item.field_427 || [],
+                                        status: item.status,
+                                        weeklyShifts: 0,
+                                        position: item.field_395_val,
+                                    }
+                                }));
+                                resolve(users);
+                            },
+                            error: function (error) {
+                                console.error('Error fetching employees:', error);
+                                reject(error);
+                            }
+                        });
+                    });
+                },
+
+                fetchSchedules: function () {
+                    const viewStart = this.calendar.view.activeStart;
+                    const viewEnd = this.calendar.view.activeEnd;
+
+                    const startDate = viewStart.toISOString().split('T')[0];
+                    const endDate = viewEnd.toISOString().split('T')[0];
+
+                    // Define the mapping between position types and CSS classes
+                    const positionClassMap = {
+                        'Closer': 'hunkpro-shift-closer',
+                        'Morning Dispatch': 'hunkpro-shift-morningdispatch',
+                        'Trainer': 'hunkpro-shift-trainer',
+                        'Estimator': 'hunkpro-shift-estimator',
+                        'Captain - Paperwork Only': 'hunkpro-shift-captainpaperworkonly',
+                        'Captain - Driver Only': 'hunkpro-shift-captaindriveronly',
+                        'Captain - Full': 'hunkpro-shift-captainfull',
+                        'Wingman': 'hunkpro-shift-wingman'
+                    };
+
+                    return new Promise((resolve, reject) => {
+                        $.ajax({
+                            "url": `https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records?filters[items][0][field_id]=field_60&filters[items][0][operator]=is%20on%20or%20after&filters[items][0][val]=${startDate}&filters[items][1][field_id]=field_60&filters[items][1][operator]=is%20on%20or%20before&filters[items][1][val]=${endDate}`,
+                            "method": "GET",
+                            "timeout": 0,
+                            "headers": {
+                                "X-Tadabase-App-id": this.tb_app_id,
+                                "X-Tadabase-App-Key": this.tb_app_key,
+                                "X-Tadabase-App-Secret": this.tb_app_secret
+                            },
+                            "processData": false,
+                            "mimeType": "multipart/form-data",
+                            "contentType": false,
+                            success: function (data) {
+                                const parsedData = JSON.parse(data);
+                                // console.log('Schedules raw data:', parsedData);
+
+                                const schedules = parsedData.items.map(item => {
+                                    try {
+                                        // Get the full position name
+                                        let positionName = '';
+                                        if (item.field_59_val &&
+                                            Array.isArray(item.field_59_val) &&
+                                            item.field_59_val[0] &&
+                                            item.field_59_val[0].val) {
+                                            positionName = item.field_59_val[0].val;
+                                        } else {
+                                            console.warn('Invalid position data for item:', item);
+                                            positionName = 'Unknown Position';
+                                        }
+
+                                        // Get the CSS class based on position name
+                                        const cssClass = positionClassMap[positionName] || 'hunkpro-shift-default';
+
+                                        // Ensure we have valid resourceId
+                                        const resourceId = Array.isArray(item.field_58) ? item.field_58[0] : item.field_58;
+                                        if (!resourceId) {
+                                            console.warn('Missing resourceId for item:', item);
+                                            return null;
+                                        }
+
+                                        return {
+                                            id: item.id,
+                                            resourceId: resourceId,
+                                            title: positionName,
+                                            positionId: item.field_59,
+                                            start: item.field_60,
+                                            classNames: [cssClass],
+                                            allDay: true
+                                        };
+                                    } catch (err) {
+                                        console.error('Error processing schedule item:', err, item);
+                                        return null;
+                                    }
+                                }).filter(schedule => schedule !== null);
+
+                                // console.log('Processed schedules:', schedules);
+                                resolve(schedules);
+                            },
+                            error: function (error) {
+                                console.error('Error fetching schedules:', error);
+                                reject(error);
+                            }
+                        });
+                    });
+                },
+                fetchAvailability: function () {
+                    const viewStart = this.calendar.view.activeStart;
+                    const viewEnd = this.calendar.view.activeEnd;
+
+                    const startDate = viewStart.toISOString().split('T')[0];
+                    const endDate = viewEnd.toISOString().split('T')[0];
+
+                    // Define the mapping between availability types and CSS classes
+                    const availabilityClassMap = {
+                        'Regular Day Off': 'hunkpro-unavailable-regular',
+                        'Vacation': 'hunkpro-unavailable-vacation',
+                        'Injury - Work Related': 'hunkpro-unavailable-injury',
+                        'Injury - Outside of Work': 'hunkpro-unavailable-injury',
+                        'Personal Emergency': 'hunkpro-unavailable-emergency',
+                        'Suspension': 'hunkpro-unavailable-suspension'
+                    };
+
+                    return new Promise((resolve, reject) => {
+                        $.ajax({
+                            "url": `https://api.tadabase.io/api/v1/data-tables/eykNOvrDY3/records?filters[items][0][field_id]=field_428-start&filters[items][0][operator]=is%20on%20or%20after&filters[items][0][val]=${startDate}&filters[items][1][field_id]=field_428-end&filters[items][1][operator]=is%20on%20or%20before&filters[items][1][val]=${endDate}`,
+                            "method": "GET",
+                            "timeout": 0,
+                            "headers": {
+                                "X-Tadabase-App-id": this.tb_app_id,
+                                "X-Tadabase-App-Key": this.tb_app_key,
+                                "X-Tadabase-App-Secret": this.tb_app_secret
+                            },
+                            "processData": false,
+                            "mimeType": "multipart/form-data",
+                            "contentType": false,
+                            success: function (data) {
+                                const parsedData = JSON.parse(data);
+                                // console.log('Availability', parsedData);
+                                const availability = parsedData.items.map(item => {
+                                    const start = item.field_428.start.split(' ')[0];
+                                    // Add one day to the end date to make it inclusive
+                                    const endDate = new Date(item.field_428.end.split(' ')[0]);
+                                    endDate.setDate(endDate.getDate() + 1);
+                                    const end = endDate.toISOString().split('T')[0];
+
+                                    // Get the availability type and find corresponding CSS class
+                                    const availabilityType = item.field_67 || 'Regular Day Off';
+                                    const cssClass = availabilityClassMap[availabilityType] || 'hunkpro-unavailable-regular';
+
+                                    // console.log(`AVAILABILITY: ${item?.field_64_val?.[0]?.val}`);
+                                    // console.log(`AVAILABILITY: Type ${availabilityType} - Class ${cssClass}`);
+                                    // console.log(`AVAILABILITY: Start ${start} - End ${end}`);
+
+                                    return {
+                                        id: item.id,
+                                        resourceId: item.field_64[0],
+                                        start: `${start}T00:00:00`,
+                                        end: `${end}T00:00:00`,
+                                        title: availabilityType,
+                                        display: 'background',
+                                        textColor: 'black',
+                                        classNames: [cssClass, 'hunkpro-unavailable-text']
+                                    };
+                                });
+                                resolve(availability);
+                            },
+                            error: function (error) {
+                                console.error('Error fetching availability:', error);
+                                reject(error);
+                            }
+                        });
+                    });
+                },
+                addShift: function (newShift) {
+                    // Create FormData object
+                    const form = new FormData();
+                    form.append('field_60', newShift.date); // Date
+                    form.append('field_58', newShift.user); // Employee
+                    form.append('field_59', newShift.position); // Position
+
+                    // Store reference to 'this' for use in callback
+                    const self = this;
+
+                    // Return promise for better error handling
+                    return new Promise((resolve, reject) => {
+                        $.ajax({
+                            url: `https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records`,
+                            method: "POST",
+                            timeout: 0,
+                            headers: {
+                                "X-Tadabase-App-id": this.tb_app_id,
+                                "X-Tadabase-App-Key": this.tb_app_key,
+                                "X-Tadabase-App-Secret": this.tb_app_secret
+                            },
+                            data: form,
+                            processData: false,
+                            contentType: false,
+                            success: function (response) {
+                                console.log('Add Shift Response:', response);
+                                // Refresh events after successful addition
+
+                                self.clearAllOverrides();
+                                self.refreshEvents().then(resolve).catch(reject);
+
+                            },
+                            error: function (error) {
+                                console.error('Error adding shift:', error);
+                                reject(error);
+                            }
+                        });
+                    });
+                },
+
+                updateShift: function (shift) {
+                    // Create FormData object
+                    console.log('updateShift', shift);
+                    const form = new FormData();
+                    form.append('field_60', shift.date); // Date
+                    // form.append('field_58', shift.user); // Employee
+                    form.append('field_59', shift.position); // Position
+
+                    // Store reference to 'this' for use in callback
+                    const self = this;
+
+                    // Return promise for better error handling
+                    return new Promise((resolve, reject) => {
+                        $.ajax({
+                            url: `https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records/${shift.id}`,
+                            method: "POST",
+                            timeout: 0,
+                            headers: {
+                                "X-Tadabase-App-id": this.tb_app_id,
+                                "X-Tadabase-App-Key": this.tb_app_key,
+                                "X-Tadabase-App-Secret": this.tb_app_secret
+                            },
+                            data: form,
+                            processData: false,
+                            contentType: false,
+                            success: function (response) {
+                                console.log('Edit Shift Response:', response);
+                                // Refresh events after successful addition
+                                self.refreshEvents().then(resolve).catch(reject);
+                            },
+                            error: function (error) {
+                                console.error('Error editing shift:', error);
+                                reject(error);
+                            }
+                        });
+                    });
+                },
+
+
+
+                loadData: async function () {
+                    try {
+                        // First fetch employees since we need them to initialize the calendar
+                        const employees = await this.fetchEmployees();
+
+                        // Initialize calendar before fetching schedules
+                        this.initializeCalendar(employees);
+
+                        console.log('refresh events from loadData()');
+                        await this.refreshEvents();
+
+                    } catch (error) {
+                        console.error('Error loading data:', error);
+                        alert('Error loading schedule data. Please try refreshing the page.');
+                    }
+                },
+
+
+
+                createResourceContent: function (title, shiftCount) {
+                    const container = document.createElement('div');
+                    container.className = 'hunkpro-resource-content';
+
+                    const nameDiv = document.createElement('div');
+                    nameDiv.className = 'hunkpro-employee-name';
+                    nameDiv.textContent = title;
+
+                    const shiftsDiv = document.createElement('div');
+                    shiftsDiv.className = 'hunkpro-shift-count';
+                    shiftsDiv.textContent = `${shiftCount} Shifts`;
+
+                    const addShiftDiv = document.createElement('div');
+                    addShiftDiv.className = 'hunkpro-add-shift';
+                    // addShiftDiv.textContent = '+ + + + + + +';
+
+                    container.appendChild(nameDiv);
+                    container.appendChild(shiftsDiv);
+                    container.appendChild(addShiftDiv);
+
+                    return container;
+                },
+
+                // Add this method to count shifts per day
+                getDailyShiftCounts: function () {
+                    const dailyCounts = {};
+                    const viewStart = this.calendar.view.activeStart;
+                    const viewEnd = this.calendar.view.activeEnd;
+
+                    // Ensure we include the full last day by setting hours to end of day
+                    const adjustedViewEnd = new Date(viewEnd);
+                    adjustedViewEnd.setHours(23, 59, 59, 999);
+
+                    // Initialize counts for each day including the last day
+                    for (let date = new Date(viewStart); date <= adjustedViewEnd; date.setDate(date.getDate() + 1)) {
+                        const dateStr = date.toISOString().split('T')[0];
+                        dailyCounts[dateStr] = 0;
+                    }
+
+                    // Count shifts for each day
+                    this.shifts.forEach(shift => {
+                        const shiftDate = new Date(shift.start);
+                        const dateStr = shiftDate.toISOString().split('T')[0];
+                        if (dailyCounts.hasOwnProperty(dateStr)) {
+                            dailyCounts[dateStr]++;
+                        }
+                    });
+
+                    return dailyCounts;
+                },
+
+                createAvailabilityEvents: function (id, resourceId, startDate, endDate, title, className) {
+                    const events = [];
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+
+                    // Create an event for each day in the range
+                    for (let date = start; date < end; date.setDate(date.getDate() + 1)) {
+                        events.push({
+                            id: `${id}-${date.toISOString().split('T')[0]}`,
+                            resourceId: resourceId,
+                            start: date.toISOString().split('T')[0],
+                            end: new Date(date.setDate(date.getDate() + 1)).toISOString().split('T')[0],
+                            title: title,
+                            display: 'background',
+                            classNames: [className],
+                        });
+                        date.setDate(date.getDate() - 1); // Reset the date back since we modified it for end date
+                    }
+
+                    return events;
+                },
+
+                refreshEvents: async function () {
+                    try {
+                        console.log('Refreshing events...');
+
+                        // Get current view dates
+                        const viewStart = this.calendar.view.activeStart;
+                        const viewEnd = this.calendar.view.activeEnd;
+
+                        // console.log('Fetching events for:', {
+                        //     start: viewStart.toISOString(),
+                        //     end: viewEnd.toISOString()
+                        // });
+
+                        // Fetch new data
+                        const [schedules, availabilityData] = await Promise.all([
+                            this.fetchSchedules(),
+                            this.fetchAvailability()
+                        ]);
+
+                        // Store the fetched data
+                        this.shifts = schedules;
+                        this.availability = availabilityData;
+
+                        console.log('Adding events:', {
+                            shifts: this.shifts.length,
+                            availability: this.availability.length
+                        });
+
+                        // Remove all existing events first
+                        this.calendar.removeAllEvents();
+
+                        // Add shifts
+                        this.shifts.forEach(shift => {
+                            this.calendar.addEvent({
+                                ...shift,
+                                allDay: true
+                            });
+                        });
+
+                        // Add availability
+                        this.availability.forEach(avail => {
+                            this.calendar.addEvent({
+                                ...avail,
+                                display: 'background',
+                                allDay: true
+                            });
+                        });
+
+                        // Update counts
+                        this.updateAllCounts();
+
+                    } catch (error) {
+                        console.error('Error refreshing events:', error);
+                    }
+                },
+
+                initializeCalendar: function (employees) {
+                    const calendarEl = document.getElementById('hunkpro-calendar');
+
+                    this.calendar = new this.FullCalendar.Calendar(calendarEl, {
+                        initialView: 'resourceTimelineWeek',
+                        firstDay: 1,
+                        schedulerLicenseKey: 'CC-Attribution-NonCommercial-NoDerivatives',
+                        resources: employees,
+                        selectable: true,
+                        editable: true,
+                        refetchResourcesOnNavigate: true,
+                        resourceAreaWidth: '200px',
+                        slotDuration: { days: 1 },
+                        dayMaxEvents: true,
+                        displayEventTime: false,
+                        displayEventEnd: false,
+
+                        // Simplified header toolbar
+                        headerToolbar: {
+                            left: 'today prev,next',
+                            center: 'title',
+                            right: 'refresh'
+                        },
+
+                        // Custom refresh button
+                        customButtons: {
+                            refresh: {
+                                text: '↻ Refresh',
+                                click: async () => {
+                                    console.log('refresh events from initializeCalendar()');
+                                    await this.refreshEvents();
+                                }
+                            }
+                        },
+
+                        // Simplified view configuration
+                        views: {
+                            resourceTimelineWeek: {
+                                type: 'resourceTimeline',
+                                duration: { weeks: 1 },
+                                slotDuration: { days: 1 },
+                                slotLabelFormat: [
+                                    { weekday: 'short', month: 'numeric', day: 'numeric' }
+                                ]
+                            }
+                        },
+
+                        // Core event handlers
+                        // Also update the datesSet handler in initializeCalendar
+                        datesSet: async (dateInfo) => {
+                            try {
+                                // Only refresh if it's a navigation change
+                                if (this._lastViewStart?.getTime() !== dateInfo.start.getTime()) {
+                                    console.log('Date range changed:', {
+                                        start: dateInfo.start,
+                                        end: dateInfo.end,
+                                        lastStart: this._lastViewStart
+                                    });
+
+                                    this._lastViewStart = dateInfo.start;
+                                    console.log('refresh events from dataSet()');
+                                    await this.refreshEvents();
+                                }
+                            } catch (error) {
+                                console.error('Error in datesSet handler:', error);
+                            }
+                        },
+
+                        // Resource area configuration
+                        resourceAreaColumns: [{
+                            field: 'title',
+                            headerContent: 'Employee Name',
+                            cellContent: (arg) => {
+                                return {
+                                    domNodes: [
+                                        this.createResourceContent(arg.resource.title, arg.resource.extendedProps.weeklyShifts)
+                                    ]
+                                };
+                            }
+                        }],
+
+                        // Event handlers
+                        select: (info) => this.handleSelect(info),
+                        eventClick: (info) => this.handleEventClick(info),
+                        eventDrop: (info) => this.handleEventDrop(info),
+
+                        // Event display configuration
+                        eventDidMount: (arg) => {
+                            if (arg.event.display === 'background') {
+                                const eventEl = arg.el;
+                                eventEl.style.opacity = '0.3';
+                                eventEl.title = `${arg.event.title}: ${new Date(arg.event.start).toLocaleDateString()} to ${new Date(arg.event.end).toLocaleDateString()}`;
+                            }
+                        },
+
+                        eventContent: (arg) => {
+                            if (arg.event.display !== 'background') {
+                                return {
+                                    html: `<div class="hunkpro-event-content"><div class="hunkpro-event-title">${arg.event.title}</div></div>`
+                                };
+                            }
+                            // return null;
+                            return `${arg.event.title}`;
+                        }
+                    });
+
+                    // Initialize calendar
+                    this.calendar.render();
+                    this.initializeModalHandlers();
+
+                    // Add window resize handler
+                    window.addEventListener('resize', () => {
+                        this.calendar.updateSize();
+                    });
+
+                    // Initial counts update
+                    setTimeout(() => {
+                        this.updateAllCounts();
+                    }, 200);
+
+                    // Event change handlers for counts
+                    const updateOnChange = () => {
+                        setTimeout(() => {
+                            this.updateAllCounts();
+                        }, 100);
+                    };
+
+                    this.calendar.on('eventAdd', updateOnChange);
+                    this.calendar.on('eventChange', updateOnChange);
+                    this.calendar.on('eventRemove', updateOnChange);
+                },
+
+                // Modified refresh events function
+                refreshEvents: async function () {
+                    try {
+                        console.log('Refreshing events...');
+
+                        const viewStart = this.calendar.view.activeStart;
+                        const viewEnd = this.calendar.view.activeEnd;
+
+                        // console.log('Fetching events for:', {
+                        //     start: viewStart.toISOString(),
+                        //     end: viewEnd.toISOString()
+                        // });
+
+                        // Fetch new data
+                        const [schedules, availabilityData] = await Promise.all([
+                            this.fetchSchedules(),
+                            this.fetchAvailability()
+                        ]);
+
+                        // Store the fetched data
+                        this.shifts = schedules;
+                        this.availability = availabilityData;
+
+                        // Remove existing events
+                        const existingEvents = this.calendar.getEvents();
+                        existingEvents.forEach(event => event.remove());
+
+                        // Add new events
+                        this.shifts.forEach(shift => {
+                            this.calendar.addEvent({
+                                ...shift,
+                                allDay: true
+                            });
+                        });
+
+                        this.availability.forEach(avail => {
+                            this.calendar.addEvent({
+                                ...avail,
+                                display: 'background',
+                                allDay: true
+                            });
+                        });
+
+                        // Force calendar to rerender
+                        this.calendar.render();
+
+                        // Update counts
+                        this.updateAllCounts();
+
+                    } catch (error) {
+                        console.error('Error refreshing events:', error);
+                    }
+                },
+
+
+                handleSelect: function (info) {
+                    console.log('handleSelect', info);
+                    const conflict = this.checkAvailability(info.resource.id, info.start);
+
+                    if (conflict) {
+                        if (conflict.type === 'shift_conflict') {
+                            Swal.fire({
+                                title: "Cannot Add Schedule",
+                                text: "Employee already has a shift scheduled for this day",
+                                icon: "error"
+                            });
+                        } else if (conflict.type === 'suspension_conflict') {
+                            Swal.fire({
+                                title: "Cannot Add Schedule",
+                                text: "Employee is suspended during this period",
+                                icon: "error"
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: "warning",
+                                title: "The employee is unavailable. Are you sure you want to add a schedule?",
+                                showDenyButton: true,
+                                showCancelButton: true,
+                                confirmButtonText: "Yes",
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    this.clearAllOverrides();
+                                    this.addOverrideDate(info.resource.id, info.start);
+                                    this.openModal('add', info);
+                                }
+                            });
+                        }
+                    } else {
+                        this.openModal('add', info);
+                    }
+                },
+
+                handleEventClick: function (info) {
+                    const resource = info.event.getResources()[0];
+
+                    if (info.event.display === 'background') {
+                        Swal.fire({
+                            title: `Unavailability: ${info.event.title}`,
+                            text: ``,
+                            icon: "warning"
+                        });
+                        return;
+                    }
+
+                    const clickedDate = new Date(info.event.start);
+                    clickedDate.setHours(12, 0, 0, 0);
+
+                    const conflict = this.checkAvailability(
+                        info.event.getResources()[0].id,
+                        clickedDate
+                    );
+
+                    if (conflict) {
+                        if (conflict.type === 'suspension_conflict') {
+                            Swal.fire({
+                                title: "Cannot Edit Schedule",
+                                text: "Employee is suspended during this period",
+                                icon: "error"
+                            });
+                            return;
+                        } else if (conflict.type === 'shift_conflict') {
+                            this.renderPositionOptions(resource, "edit", info.event);
+                            this.openModal('edit', info);
+                            return;
+                        } else {
+                            Swal.fire({
+                                title: `Cannot edit: Employee is ${conflict.title}`,
+                                text: `START: ${conflict.start} \n END: ${conflict.end}`,
+                                icon: "warning"
+                            });
+                            return;
+                        }
+                    }
+                },
+
+                // Update handleEventDrop to handle suspensions
+                handleEventDrop: function (info) {
+                    let event = info.event;
+                    let resource = info.event.getResources()[0]._resource;
+
+                    const conflict = this.checkAvailability(
+                        info.event.getResources()[0].id,
+                        info.event.start
+                    );
+
+                    if (conflict) {
+                        if (conflict.type === 'suspension_conflict') {
+                            Swal.fire({
+                                title: "Cannot Move Schedule",
+                                text: "Employee is suspended during this period",
+                                icon: "error"
+                            });
+                            info.revert();
+                        } else if (conflict.type === 'shift_conflict') {
+                            Swal.fire({
+                                title: "Cannot Move Schedule",
+                                text: "Employee already has a shift scheduled for this day",
+                                icon: "error"
+                            });
+                            info.revert();
+                        } else {
+                            Swal.fire({
+                                icon: "warning",
+                                title: "The employee is unavailable at this date. ",
+                                text: "Are you sure you want to add a schedule?",
+                                showDenyButton: true,
+                                showCancelButton: true,
+                                confirmButtonText: "Yes",
+                                denyButtonText: `No`
+                            }).then((result) => {
+                                if (result.isConfirmed) {
+                                    this.eventDropUpdate(info.event);
+                                } else {
+                                    info.revert();
+                                }
+                            });
+                        }
+                    } else {
+                        this.eventDropUpdate(info.event);
+                    }
+                },
+
+                checkAvailability: function (resourceId, date) {
+                    // First check if there's already a shift scheduled (preventing multiple shifts)
+                    const checkDate = new Date(date);
+                    checkDate.setHours(0, 0, 0, 0);
+
+                    const existingShift = this.shifts.find(shift => {
+                        const shiftDate = new Date(shift.start);
+                        shiftDate.setHours(0, 0, 0, 0);
+
+                        return shift.resourceId === resourceId &&
+                            shiftDate.getTime() === checkDate.getTime();
+                    });
+
+                    // If there's already a shift, return a special conflict message
+                    if (existingShift) {
+                        return {
+                            title: "Already Scheduled",
+                            start: new Date(existingShift.start).toLocaleDateString(),
+                            end: new Date(existingShift.start).toLocaleDateString(),
+                            type: 'shift_conflict'
+                        };
+                    }
+
+                    // Then check for availability conflicts
+                    const availabilityConflict = this.availability.find(a => {
+                        try {
+                            // Create dates for comparison
+                            const startDate = new Date(a.start);
+                            startDate.setHours(0, 0, 0, 0);
+
+                            // Create end date and subtract one day to account for the UI adjustment
+                            const endDate = new Date(a.end);
+                            endDate.setDate(endDate.getDate() - 1); // Subtract one day
+                            endDate.setHours(23, 59, 59, 999);
+
+                            const checkDate = new Date(date);
+                            checkDate.setHours(12, 0, 0, 0);
+
+                            return a.resourceId === resourceId &&
+                                checkDate >= startDate &&
+                                checkDate <= endDate;
+                        } catch (error) {
+                            console.error('Error checking availability:', error);
+                            return false; // Fail safe in case of date parsing errors
+                        }
+                    });
+
+                    // If there's no availability conflict, employee is available
+                    if (!availabilityConflict) {
+                        return null;
+                    }
+
+                    // Return conflict with special handling for suspensions
+                    return {
+                        ...availabilityConflict,
+                        start: new Date(availabilityConflict.start).toLocaleDateString(),
+                        end: new Date(new Date(availabilityConflict.end).setDate(
+                            new Date(availabilityConflict.end).getDate() - 1
+                        )).toLocaleDateString(),
+                        type: availabilityConflict.title === 'Suspension' ? 'suspension_conflict' : 'availability_conflict'
+                    };
+                },
+
+                initializeModalHandlers: function () {
+                    const modal = document.getElementById('hunkpro-shift-modal');
+                    const closeBtn = modal.querySelector('.hunkpro-close');
+                    const form = document.getElementById('hunkpro-shift-form');
+                    const formLoader = document.getElementById('form-loader');
+                    const formOptions = document.getElementById('form-options');
+
+                    formLoader.style.display = 'none';
+                    formLoader.classList.add('chhj-hide');
+                    formOptions.style.display = 'flex';
+                    formOptions.classList.remove('chhj-hide');
+
+                    // Initialize Bootstrap modal
+                    const bsModal = new bootstrap.Modal(modal);
+
+                    // Close button handler
+                    closeBtn.onclick = () => {
+                        this.clearError();
+                        this.toggleLoader(false);
+                        bsModal.hide();
+                    };
+
+                    // Form submit handler
+                    form.onsubmit = (e) => {
+                        e.preventDefault();
+                        this.handleFormSubmit();
+                    };
+
+                    // Handle modal hidden event
+                    modal.addEventListener('hidden.bs.modal', () => {
+                        this.clearError();
+                        this.toggleLoader(false);
+                        this.clearAllOverrides(); // Ensure overrides are cleared when modal is closed
+                        // Destroy datepicker to ensure clean slate for next opening
+                        if (this.datePicker) {
+                            this.datePicker.destroy();
+                            this.datePicker = null;
+                        }
+                    });
+
+                    // Handle click outside modal
+                    modal.addEventListener('click', (event) => {
+                        if (event.target === modal) {
+                            this.clearError();
+                            this.toggleLoader(false);
+                            bsModal.hide();
+                        }
+                    });
+                },
+
+                renderPositionOptions: function (resource, mode, event) {
+                    if (event != null) {
+                        console.log('renderPositionOptions Event :', event);
+                        console.log('renderPositionOptions Event position :', event?.extendedProps?.positionId?.[0]);
+                    }
+                    let positions = resource?._resource?.extendedProps?.position || [];
+                    console.log('positions', positions);
+
+                    var select = $('#hunkpro-shift-position');
+                    select.empty();
+
+                    // Add "Select Position" option only if there are multiple positions
+                    if (positions.length > 1) {
+                        select.append($('<option>', {
+                            value: '',
+                            text: 'Select Position'
+                        }));
+                    }
+
+                    positions.forEach((position) => {
+                        const optionElement = $('<option>', {
+                            value: position.id,
+                            text: position.val
+                        });
+                        select.append(optionElement);
+                    });
+
+                    console.log('options.length', positions.length);
+
+                    // Auto-select if there's only one position
+                    if (mode === 'add' && positions.length === 1) {
+                        $('#hunkpro-shift-position').val(positions[0].id).change();
+                    } else if (mode === 'edit' && event) {
+                        let positionId = event?.extendedProps?.positionId?.[0];
+                        const select = $('#hunkpro-shift-position');
+
+                        // Clear current selection
+                        select.prop('selectedIndex', -1);
+                        // Set the value
+                        select.val(positionId);
+                        select.prop('selected', true);
+
+                        // Log for debugging
+                        console.log('Position options:', select.find('option').length);
+                        console.log('Selected value:', select.val());
+                    }
+                },
+
+                openModal: function (mode, info) {
+                    const modal = document.getElementById('hunkpro-shift-modal');
+                    const modalTitle = document.getElementById('hunkpro-modal-title');
+                    const dateInput = document.getElementById('hunkpro-shift-date');
+                    const employeeInput = document.getElementById('hunkpro-shift-employee');
+                    const positionSelect = document.getElementById('hunkpro-shift-position');
+
+                    this.toggleLoader(false);
+                    this.clearError();
+
+                    modalTitle.textContent = mode === 'add' ? 'Add Shift' : 'Edit Shift';
+
+                    // Set modal data attributes before initializing date picker
+                    modal.dataset.mode = mode;
+                    modal.dataset.resourceId = mode === 'add' ? info.resource.id : info.event.getResources()[0].id;
+                    modal.dataset.start = mode === 'add' ? info.startStr : info.event.startStr;
+                    if (mode === 'edit') {
+                        modal.dataset.eventId = info.event.id;
+                        const eventDate = new Date(info.event.start);
+                        this.addOverrideDate(info.event.getResources()[0].id, eventDate);
+                    }
+
+                    // Initialize date picker after setting modal data
+                    this.initializeDatePicker();
+
+                    // Set values after date picker is initialized
+                    if (mode === 'add') {
+                        this.datePicker.setDate(info.start);
+                        employeeInput.value = info.resource.title;
+                        positionSelect.value = '';
+                        this.renderPositionOptions(info.resource, mode, null);
+                    } else {
+                        this.datePicker.setDate(info.event.start);
+                        employeeInput.value = info.event.getResources()[0].title;
+                        positionSelect.value = info.event.title.toLowerCase();
+                        this.renderPositionOptions(info.event.getResources()[0], mode, info.event);
+                    }
+
+                    const bsModal = new bootstrap.Modal(modal);
+                    bsModal.show();
+                },
+
+                // Update handleFormSubmit to use Bootstrap modal
+                handleFormSubmit: async function () {
+                    const modal = document.getElementById('hunkpro-shift-modal');
+                    const position = document.getElementById('hunkpro-shift-position').value;
+                    const isAddMode = modal.dataset.mode === 'add';
+
+                    // Clear any existing errors
+                    this.clearError();
+
+                    // Enhanced position validation
+                    if (!position || position.trim() === '') {
+                        this.showError('Please select a position before continuing');
+                        return;
+                    }
+
+                    try {
+                        // Show loader with appropriate message
+                        this.toggleLoader(true, isAddMode ? 'Adding Shift...' : 'Updating Shift...');
+
+                        if (isAddMode) {
+                            const selectedDate = this.datePicker.formatDate(
+                                this.datePicker.selectedDates[0],
+                                "Y-m-d"
+                            );
+                            const newShift = {
+                                user: modal.dataset.resourceId,
+                                position: position,
+                                // date: modal.dataset.start,
+                                date: selectedDate || ''
+                            };
+
+                            await this.addShift(newShift);
+                        } else {
+                            const event = this.calendar.getEventById(modal.dataset.eventId);
+                            const selectedDate = this.datePicker.formatDate(
+                                this.datePicker.selectedDates[0],
+                                "Y-m-d"
+                            );
+
+                            await this.updateShift({
+                                id: event?.id || '',
+                                date: selectedDate || '',
+                                position: $('#hunkpro-shift-position').val() || ''
+                            });
+                        }
+
+                        // Hide loader and close modal on success
+                        this.toggleLoader(false);
+                        const bsModal = bootstrap.Modal.getInstance(modal);
+                        bsModal.hide();
+                        this.updateAllCounts();
+
+                    } catch (error) {
+                        console.error('Error handling form submit:', error);
+                        // Hide loader and show error
+                        this.toggleLoader(false);
+                        this.showError('Failed to save shift. Please try again.');
+                        // Clear overrides on error as well
+                        // this.clearEmployeeOverrides(resourceId);
+                    }
+                },
+
+                toggleLoader: function (show, message = '') {
+                    const formOptions = document.getElementById('form-options');
+                    const formLoader = document.getElementById('form-loader');
+                    const loaderMessage = formLoader.querySelector('.loader-message');
+
+                    if (show) {
+                        formOptions.style.display = 'flex';
+                        formLoader.style.display = 'flex';
+                        formLoader.classList.remove('chhj-hide');
+                        formOptions.classList.add('chhj-hide');
+                        loaderMessage.textContent = message;
+                    } else {
+                        formLoader.style.display = 'none';
+                        formOptions.style.display = 'flex';
+                        formLoader.classList.add('chhj-hide');
+                        formOptions.classList.remove('chhj-hide');
+                    }
+                },
+
+                showError: function (message) {
+                    const errorDiv = document.getElementById('form-error');
+                    errorDiv.textContent = message;
+                    errorDiv.style.display = 'block';
+                },
+
+                clearError: function () {
+                    const errorDiv = document.getElementById('form-error');
+                    errorDiv.textContent = '';
+                    errorDiv.style.display = 'none';
+                },
+
+                eventDropUpdate: function (event) {
+                    const shiftIndex = this.shifts.findIndex(s => s.id === event.id);
+                    if (shiftIndex !== -1) {
+                        this.shifts[shiftIndex] = {
+                            ...this.shifts[shiftIndex],
+                            resourceId: event.getResources()[0].id,
+                            start: event.startStr
+                        };
+                        this.updateShift({
+                            id: event?.id || '',
+                            date: event?.startStr || '',
+                            position: event?.extendedProps?.positionId?.[0] || ''
+                        });
+                    }
+                    this.updateAllCounts();
+                },
+
+                getWeeklyShiftCount: function (resourceId) {
+                    const viewStart = this.calendar.view.activeStart;
+                    const viewEnd = this.calendar.view.activeEnd;
+
+                    return this.shifts.filter(shift =>
+                        shift.resourceId === resourceId &&
+                        new Date(shift.start) >= viewStart &&
+                        new Date(shift.start) < viewEnd
+                    ).length;
+                },
+
+
+                getDailyShiftCount: function (date) {
+                    // Normalize both dates to midnight UTC for consistent comparison
+                    const normalizedTargetDate = new Date(date);
+                    normalizedTargetDate.setHours(0, 0, 0, 0);
+
+                    return this.shifts.filter(shift => {
+                        const shiftDate = new Date(shift.start);
+                        shiftDate.setHours(0, 0, 0, 0);
+                        return shiftDate.getTime() === normalizedTargetDate.getTime();
+                    }).length;
+                },
+
+                updateAllCounts: function () {
+                    // Ensure calendar is rendered before updating counts
+                    if (!this.calendar.isRendered) {
+                        return;
+                    }
+
+                    // Update resource shift counts
+                    this.calendar.getResources().forEach(resource => {
+                        const weeklyShifts = this.getWeeklyShiftCount(resource.id);
+                        resource.setExtendedProp('weeklyShifts', weeklyShifts);
+
+                        const resourceEl = this.calendar.el.querySelector(`[data-resource-id="${resource.id}"]`);
+                        if (resourceEl) {
+                            const totalShiftsEl = resourceEl.querySelector('.hunkpro-shift-count');
+                            if (totalShiftsEl) {
+                                totalShiftsEl.textContent = `${weeklyShifts} Shifts`;
+                            }
+                        }
+                    });
+
+                    // Update day header counts with improved date handling
+                    const counts = this.getDailyShiftCounts();
+                    Object.entries(counts).forEach(([dateStr, count]) => {
+                        // Find header element for this date
+                        const headerEl = this.calendar.el.querySelector(`[data-date="${dateStr}"]`);
+                        if (headerEl) {
+                            let countEl = headerEl.querySelector('.hunkpro-header-count');
+                            if (!countEl) {
+                                countEl = document.createElement('div');
+                                countEl.className = 'hunkpro-header-count';
+                                headerEl.appendChild(countEl);
+                            }
+                            // Always update the count display
+                            countEl.textContent = `(${count})`;
+                        }
+                    });
+
+                    // Force a rerender of the calendar to ensure all counts are displayed
+                    this.calendar.render();
+                },
+                initializeDatePicker: function () {
+                    const dateInput = document.getElementById('hunkpro-shift-date');
+                    const modal = document.getElementById('hunkpro-shift-modal');
+                    const isEditMode = modal.dataset.mode === 'edit';
+                    const currentEventId = isEditMode ? modal.dataset.eventId : null;
+
+                    // Get current view's start and end dates from FullCalendar
+                    const viewStart = this.calendar.view.activeStart;
+                    const viewEnd = this.calendar.view.activeEnd;
+
+                    // Ensure clean slate
+                    if (this.datePicker) {
+                        this.datePicker.destroy();
+                    }
+
+                    this.datePicker = flatpickr(dateInput, {
+                        dateFormat: "Y-m-d",
+                        defaultDate: "today",
+                        locale: {
+                            firstDayOfWeek: 1
+                        },
+                        // Enable date selection only within the current view's date range
+                        minDate: viewStart,
+                        maxDate: new Date(viewEnd.getTime() - 24 * 60 * 60 * 1000), // Subtract one day from end date
+
+                        // Disable dates outside the current week and handle availability conflicts
+                        disable: [
+                            (date) => {
+                                const resourceId = modal.dataset.resourceId;
+
+                                if (!resourceId) {
+                                    console.log('No resource ID available');
+                                    return false;
+                                }
+
+                                // Convert date to consistent format for comparison
+                                const checkDate = new Date(date);
+                                checkDate.setHours(12, 0, 0, 0);
+
+                                // Check if date is within current view range
+                                if (checkDate < viewStart || checkDate >= viewEnd) {
+                                    return true;
+                                }
+
+                                // Check for shifts on this date
+                                const existingShift = this.shifts.find(shift => {
+                                    const shiftDate = new Date(shift.start);
+                                    shiftDate.setHours(0, 0, 0, 0);
+                                    return shift.resourceId === resourceId &&
+                                        shiftDate.getTime() === new Date(date).setHours(0, 0, 0, 0) &&
+                                        shift.id !== currentEventId; // Don't block current shift in edit mode
+                                });
+
+                                // If there's a shift and we're not editing that specific shift, disable the date
+                                if (existingShift) {
+                                    return true;
+                                }
+
+                                // Check if date is overridden (from previous availability override)
+                                if (this.isDateOverridden(resourceId, date)) {
+                                    return false;
+                                }
+
+                                // Check for availability conflicts
+                                const availabilityConflict = this.availability.some(avail => {
+                                    if (avail.resourceId !== resourceId) return false;
+
+                                    const startDate = new Date(avail.start);
+                                    const endDate = new Date(avail.end);
+                                    endDate.setDate(endDate.getDate() - 1);
+
+                                    startDate.setHours(0, 0, 0, 0);
+                                    endDate.setHours(23, 59, 59, 999);
+
+                                    return checkDate >= startDate && checkDate <= endDate;
+                                });
+
+                                return availabilityConflict;
+                            }
+                        ],
+
+                        // Show the calendar immediately when the input is focused
+                        allowInput: false,
+                        clickOpens: true,
+
+                        // Update the calendar when it opens to ensure correct date range
+                        onOpen: function (selectedDates, dateStr, instance) {
+                            // Force update of the calendar to ensure correct date range
+                            instance.jumpToDate(instance.selectedDates[0] || viewStart);
+                        },
+
+                        onChange: (selectedDates, dateStr) => {
+                            // Additional onChange logic if needed
+                        },
+
+                        onClose: () => {
+                            const resourceId = modal.dataset.resourceId;
+                            if (resourceId) {
+                                // Cleanup logic if needed
+                            }
+                        }
+                    });
+
+                    return this.datePicker;
+                },
+                // Add override for specific employee and date
+                addOverrideDate: function (employeeId, date) {
+                    const dateStr = new Date(date).toISOString().split('T')[0];
+                    if (!this.overrideDates.has(employeeId)) {
+                        this.overrideDates.set(employeeId, new Set());
+                    }
+                    this.overrideDates.get(employeeId).add(dateStr);
+                },
+
+                // Remove override for specific employee and date
+                removeOverrideDate: function (employeeId, date) {
+                    const dateStr = new Date(date).toISOString().split('T')[0];
+                    if (this.overrideDates.has(employeeId)) {
+                        this.overrideDates.get(employeeId).delete(dateStr);
+                        // Clean up empty sets
+                        if (this.overrideDates.get(employeeId).size === 0) {
+                            this.overrideDates.delete(employeeId);
+                        }
+                    }
+                },
+                // Check if date is overridden for employee
+                isDateOverridden: function (employeeId, date) {
+                    // console.log('overrideDates',this.overrideDates);
+                    const dateStr = new Date(date).toISOString().split('T')[0];
+                    return this.overrideDates.has(employeeId) &&
+                        this.overrideDates.get(employeeId).has(dateStr);
+                },
+
+                // Clear all overrides for an employee
+                clearEmployeeOverrides: function (employeeId) {
+                    this.overrideDates.delete(employeeId);
+                },
+
+                // Clear all overrides
+                clearAllOverrides: function () {
+                    this.overrideDates.clear();
+                },
+            };
+
+            // Initialize the scheduler
+            document.addEventListener('DOMContentLoaded', function () {
+                window.HunkProScheduler.init();
+            });
+        </script>
+</body>
+
+</html>
