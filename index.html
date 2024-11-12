@@ -778,9 +778,19 @@
                 calendar: null,
                 shifts: [], // Store shifts data
                 availability: [], // Store availability data
+                regularDayOffs: [],
                 tb_app_id: 'VWQWR8A9NZ',
                 tb_app_key: 'GzkHdwxG3lKE',
                 tb_app_secret: 'g8qR0yK8Jv8pW8Op8T1vtxJkBFC8d8pp',
+
+                availabilityClassMap: {
+                    'Regular Day Off': 'hunkpro-unavailable-regular',
+                    'Vacation': 'hunkpro-unavailable-vacation',
+                    'Injury - Work Related': 'hunkpro-unavailable-injury',
+                    'Injury - Outside of Work': 'hunkpro-unavailable-injury',
+                    'Personal Emergency': 'hunkpro-unavailable-emergency',
+                    'Suspension': 'hunkpro-unavailable-suspension'
+                },
 
                 overrideDates: new Map(),
 
@@ -907,6 +917,8 @@
                                             classNames: [cssClass],
                                             allDay: true
                                         };
+
+
                                     } catch (err) {
                                         console.error('Error processing schedule item:', err, item);
                                         return null;
@@ -923,26 +935,26 @@
                         });
                     });
                 },
+
                 fetchAvailability: function () {
                     const viewStart = this.calendar.view.activeStart;
                     const viewEnd = this.calendar.view.activeEnd;
 
-                    const startDate = viewStart.toISOString().split('T')[0];
-                    const endDate = viewEnd.toISOString().split('T')[0];
+                    // Add buffer days
+                    const bufferStart = new Date(viewStart);
+                    bufferStart.setDate(bufferStart.getDate() - 7);
 
-                    // Define the mapping between availability types and CSS classes
-                    const availabilityClassMap = {
-                        'Regular Day Off': 'hunkpro-unavailable-regular',
-                        'Vacation': 'hunkpro-unavailable-vacation',
-                        'Injury - Work Related': 'hunkpro-unavailable-injury',
-                        'Injury - Outside of Work': 'hunkpro-unavailable-injury',
-                        'Personal Emergency': 'hunkpro-unavailable-emergency',
-                        'Suspension': 'hunkpro-unavailable-suspension'
-                    };
+                    const bufferEnd = new Date(viewEnd);
+                    bufferEnd.setDate(bufferEnd.getDate() + 7);
+
+                    const startDate = bufferStart.toISOString().split('T')[0];
+                    const endDate = bufferEnd.toISOString().split('T')[0];
+
+                    const classMap = this.availabilityClassMap;
 
                     return new Promise((resolve, reject) => {
                         $.ajax({
-                            "url": `https://api.tadabase.io/api/v1/data-tables/eykNOvrDY3/records?filters[items][0][field_id]=field_428-start&filters[items][0][operator]=is%20on%20or%20after&filters[items][0][val]=${startDate}&filters[items][1][field_id]=field_428-end&filters[items][1][operator]=is%20on%20or%20before&filters[items][1][val]=${endDate}`,
+                            "url": `https://api.tadabase.io/api/v1/data-tables/eykNOvrDY3/records?filters[items][0][field_id]=field_428-start&filters[items][0][operator]=is%20on%20or%20before&filters[items][0][val]=${endDate}&filters[items][1][field_id]=field_428-end&filters[items][1][operator]=is%20on%20or%20after&filters[items][1][val]=${startDate}&filters[items][2][field_id]=field_67&filters[items][2][operator]=is%20not&filters[items][2][val]=Regular%20Day%20Off`,
                             "method": "GET",
                             "timeout": 0,
                             "headers": {
@@ -953,35 +965,43 @@
                             "processData": false,
                             "mimeType": "multipart/form-data",
                             "contentType": false,
-                            success: function (data) {
+                            success: (data) => {
                                 const parsedData = JSON.parse(data);
-                                // console.log('Availability', parsedData);
                                 const availability = parsedData.items.map(item => {
-                                    const start = item.field_428.start.split(' ')[0];
-                                    // Add one day to the end date to make it inclusive
-                                    const endDate = new Date(item.field_428.end.split(' ')[0]);
-                                    endDate.setDate(endDate.getDate() + 1);
-                                    const end = endDate.toISOString().split('T')[0];
+                                    try {
+                                        // Get the original start and end dates
+                                        const originalStart = new Date(item.field_428.start.split(' ')[0]);
+                                        const originalEnd = new Date(item.field_428.end.split(' ')[0]);
 
-                                    // Get the availability type and find corresponding CSS class
-                                    const availabilityType = item.field_67 || 'Regular Day Off';
-                                    const cssClass = availabilityClassMap[availabilityType] || 'hunkpro-unavailable-regular';
+                                        // Adjust end date to include the full last day
+                                        const adjustedEnd = new Date(originalEnd);
+                                        adjustedEnd.setDate(adjustedEnd.getDate() + 1);
 
-                                    // console.log(`AVAILABILITY: ${item?.field_64_val?.[0]?.val}`);
-                                    // console.log(`AVAILABILITY: Type ${availabilityType} - Class ${cssClass}`);
-                                    // console.log(`AVAILABILITY: Start ${start} - End ${end}`);
+                                        const availabilityType = item.field_67;
+                                        const cssClass = classMap[availabilityType] || 'hunkpro-unavailable-regular';
 
-                                    return {
-                                        id: item.id,
-                                        resourceId: item.field_64[0],
-                                        start: `${start}T00:00:00`,
-                                        end: `${end}T00:00:00`,
-                                        title: availabilityType,
-                                        display: 'background',
-                                        textColor: 'black',
-                                        classNames: [cssClass, 'hunkpro-unavailable-text']
-                                    };
-                                });
+                                        // Create the event
+                                        return {
+                                            id: item.id,
+                                            resourceId: item.field_64[0],
+                                            start: originalStart.toISOString().split('T')[0],
+                                            end: adjustedEnd.toISOString().split('T')[0],
+                                            title: availabilityType,
+                                            display: 'background',
+                                            textColor: 'black',
+                                            classNames: [cssClass, 'hunkpro-unavailable-text'],
+                                            extendedProps: {
+                                                originalStart: item.field_428.start,
+                                                originalEnd: item.field_428.end,
+                                                type: availabilityType
+                                            }
+                                        };
+                                    } catch (error) {
+                                        console.error('Error processing availability item:', error, item);
+                                        return null;
+                                    }
+                                }).filter(event => event !== null);
+
                                 resolve(availability);
                             },
                             error: function (error) {
@@ -991,6 +1011,118 @@
                         });
                     });
                 },
+
+                fetchRegularDayOffs: function () {
+                    return new Promise((resolve, reject) => {
+                        $.ajax({
+                            "url": `https://api.tadabase.io/api/v1/data-tables/eykNOvrDY3/records?filters[items][0][field_id]=field_67&filters[items][0][operator]=is&filters[items][0][val]=Regular%20Day%20Off`,
+                            "method": "GET",
+                            "timeout": 0,
+                            "headers": {
+                                "X-Tadabase-App-id": this.tb_app_id,
+                                "X-Tadabase-App-Key": this.tb_app_key,
+                                "X-Tadabase-App-Secret": this.tb_app_secret
+                            },
+                            "processData": false,
+                            "mimeType": "multipart/form-data",
+                            "contentType": false,
+                            success: (data) => {
+                                const parsedData = JSON.parse(data);
+                                let availability = [];
+
+                                // Get date range for current view
+                                const viewStart = new Date(this.calendar.view.activeStart);
+                                const viewEnd = new Date(this.calendar.view.activeEnd);
+
+                                // Normalize view start/end to midnight UTC
+                                viewStart.setUTCHours(0, 0, 0, 0);
+                                viewEnd.setUTCHours(0, 0, 0, 0);
+
+                                console.log('Processing regular day offs for date range:', {
+                                    start: viewStart.toISOString(),
+                                    end: viewEnd.toISOString()
+                                });
+
+                                parsedData.items.forEach(item => {
+                                    // Verify we have an employee ID and selected days
+                                    if (!item.field_64?.[0] || !Array.isArray(item.field_475)) {
+                                        return;
+                                    }
+
+                                    const employeeId = item.field_64[0];
+                                    const selectedDays = item.field_475
+                                        .filter(day => day && typeof day === 'string')
+                                        .map(day => day.trim());
+
+                                    console.log(`Employee ${employeeId} selected days:`, selectedDays);
+
+                                    // Process each day in the current week
+                                    let currentDate = new Date(viewStart);
+                                    while (currentDate < viewEnd) {
+                                        // Get the day name for the current date
+                                        const dayName = currentDate.toLocaleDateString('en-US', { weekday: 'long' });
+
+                                        // Check if this is a selected day off
+                                        if (selectedDays.includes(dayName)) {
+                                            // Format dates in YYYY-MM-DD format
+                                            const startDate = currentDate.toISOString().split('T')[0];
+                                            const nextDay = new Date(currentDate);
+                                            nextDay.setDate(nextDay.getDate() + 1);
+                                            const endDate = nextDay.toISOString().split('T')[0];
+
+                                            // Check for overlapping availability
+                                            const isOverlapped = this.availability.some(avail => {
+                                                if (avail.resourceId !== employeeId) return false;
+
+                                                const availStart = new Date(avail.start);
+                                                const availEnd = new Date(avail.end);
+                                                availStart.setUTCHours(0, 0, 0, 0);
+                                                availEnd.setUTCHours(0, 0, 0, 0);
+
+                                                const eventDate = new Date(startDate);
+                                                eventDate.setUTCHours(0, 0, 0, 0);
+
+                                                return eventDate >= availStart && eventDate < availEnd;
+                                            });
+
+                                            if (!isOverlapped) {
+                                                console.log(`Creating regular day off for ${employeeId} on ${startDate}`);
+
+                                                const event = {
+                                                    id: `dayoff-${item.id}-${startDate}`,
+                                                    resourceId: employeeId,
+                                                    start: startDate,
+                                                    end: endDate,
+                                                    title: 'Regular Day Off',
+                                                    display: 'background',
+                                                    textColor: 'black',
+                                                    classNames: ['hunkpro-unavailable-regular', 'hunkpro-unavailable-text'],
+                                                    extendedProps: {
+                                                        type: 'regular-day-off',
+                                                        isRegularDayOff: true
+                                                    }
+                                                };
+
+                                                availability.push(event);
+                                            }
+                                        }
+
+                                        // Move to next day
+                                        currentDate.setDate(currentDate.getDate() + 1);
+                                    }
+                                });
+
+                                console.log('Generated regular day off events:', availability);
+                                resolve(availability);
+                            },
+                            error: function (error) {
+                                console.error('Error fetching regular day offs:', error);
+                                reject(error);
+                            }
+                        });
+                    });
+                },
+
                 addShift: function (newShift) {
                     // Create FormData object
                     const form = new FormData();
@@ -1080,7 +1212,7 @@
                         this.initializeCalendar(employees);
 
                         console.log('refresh events from loadData()');
-                        await this.refreshEvents();
+                        // await this.refreshEvents();
 
                     } catch (error) {
                         console.error('Error loading data:', error);
@@ -1161,62 +1293,6 @@
                     }
 
                     return events;
-                },
-
-                refreshEvents: async function () {
-                    try {
-                        console.log('Refreshing events...');
-
-                        // Get current view dates
-                        const viewStart = this.calendar.view.activeStart;
-                        const viewEnd = this.calendar.view.activeEnd;
-
-                        // console.log('Fetching events for:', {
-                        //     start: viewStart.toISOString(),
-                        //     end: viewEnd.toISOString()
-                        // });
-
-                        // Fetch new data
-                        const [schedules, availabilityData] = await Promise.all([
-                            this.fetchSchedules(),
-                            this.fetchAvailability()
-                        ]);
-
-                        // Store the fetched data
-                        this.shifts = schedules;
-                        this.availability = availabilityData;
-
-                        console.log('Adding events:', {
-                            shifts: this.shifts.length,
-                            availability: this.availability.length
-                        });
-
-                        // Remove all existing events first
-                        this.calendar.removeAllEvents();
-
-                        // Add shifts
-                        this.shifts.forEach(shift => {
-                            this.calendar.addEvent({
-                                ...shift,
-                                allDay: true
-                            });
-                        });
-
-                        // Add availability
-                        this.availability.forEach(avail => {
-                            this.calendar.addEvent({
-                                ...avail,
-                                display: 'background',
-                                allDay: true
-                            });
-                        });
-
-                        // Update counts
-                        this.updateAllCounts();
-
-                    } catch (error) {
-                        console.error('Error refreshing events:', error);
-                    }
                 },
 
                 initializeCalendar: function (employees) {
@@ -1351,48 +1427,53 @@
                     this.calendar.on('eventRemove', updateOnChange);
                 },
 
-                // Modified refresh events function
+                // Update the refreshEvents function to ensure proper order of events
                 refreshEvents: async function () {
                     try {
-                        console.log('Refreshing events...');
-
-                        const viewStart = this.calendar.view.activeStart;
-                        const viewEnd = this.calendar.view.activeEnd;
-
-                        // console.log('Fetching events for:', {
-                        //     start: viewStart.toISOString(),
-                        //     end: viewEnd.toISOString()
-                        // });
-
-                        // Fetch new data
+                        // First fetch all data
                         const [schedules, availabilityData] = await Promise.all([
                             this.fetchSchedules(),
                             this.fetchAvailability()
                         ]);
 
-                        // Store the fetched data
+                        // Store initial data
                         this.shifts = schedules;
                         this.availability = availabilityData;
 
+                        // Now fetch regular day offs after availability is stored
+                        const regularDayOffs = await this.fetchRegularDayOffs();
+
+                        console.log('Regular day offs before adding to calendar:', regularDayOffs);
+
                         // Remove existing events
-                        const existingEvents = this.calendar.getEvents();
-                        existingEvents.forEach(event => event.remove());
+                        this.calendar.removeAllEvents();
 
-                        // Add new events
-                        this.shifts.forEach(shift => {
+                        // Process each type of event separately
+                        regularDayOffs.forEach(event => {
                             this.calendar.addEvent({
-                                ...shift,
-                                allDay: true
-                            });
-                        });
-
-                        this.availability.forEach(avail => {
-                            this.calendar.addEvent({
-                                ...avail,
+                                ...event,
                                 display: 'background',
                                 allDay: true
                             });
                         });
+
+                        availabilityData.forEach(event => {
+                            this.calendar.addEvent({
+                                ...event,
+                                display: 'background',
+                                allDay: true
+                            });
+                        });
+
+                        schedules.forEach(event => {
+                            this.calendar.addEvent({
+                                ...event,
+                                allDay: true
+                            });
+                        });
+
+                        // Update the combined availability for future checks
+                        this.availability = [...availabilityData, ...regularDayOffs];
 
                         // Force calendar to rerender
                         this.calendar.render();
@@ -1404,7 +1485,6 @@
                         console.error('Error refreshing events:', error);
                     }
                 },
-
 
                 handleSelect: function (info) {
                     console.log('handleSelect', info);
