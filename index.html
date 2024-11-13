@@ -20,6 +20,10 @@
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
         <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
+        <!-- Add these just after your other script tags in the head section -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone.min.js"></script>
+
     </head>
     <style>
         :root {
@@ -1130,7 +1134,7 @@
                             });
                     });
                 },
-                
+
                 addShift: function (newShift) {
                     // Create FormData object
                     const form = new FormData();
@@ -1319,6 +1323,9 @@
                         dayMaxEvents: true,
                         displayEventTime: false,
                         displayEventEnd: false,
+                        // Add these timezone-specific settings
+                        timeZone: 'UTC', // Use UTC as the base timezone
+                        displayTimeZone: 'local', // Display in local timezone
 
                         // Simplified header toolbar
                         headerToolbar: {
@@ -1338,6 +1345,18 @@
                             }
                         },
 
+                        // Ensure events are handled in UTC
+                        eventDataTransform: function (event) {
+                            // Convert dates to UTC
+                            if (event.start) {
+                                event.start = moment.utc(event.start).format('YYYY-MM-DD');
+                            }
+                            if (event.end) {
+                                event.end = moment.utc(event.end).format('YYYY-MM-DD');
+                            }
+                            return event;
+                        },
+
                         // Simplified view configuration
                         views: {
                             resourceTimelineWeek: {
@@ -1345,7 +1364,7 @@
                                 duration: { weeks: 1 },
                                 slotDuration: { days: 1 },
                                 slotLabelFormat: [
-                                    { weekday: 'short', month: 'numeric', day: 'numeric' }
+                                    { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'UTC' }
                                 ]
                             }
                         },
