@@ -1331,8 +1331,9 @@
                         headerToolbar: {
                             left: 'today prev,next',
                             center: 'title',
-                            right: 'refresh'
+                            right: 'copyWeek refresh'
                         },
+
 
                         // Custom refresh button
                         customButtons: {
@@ -1341,6 +1342,13 @@
                                 click: async () => {
                                     console.log('refresh events from initializeCalendar()');
                                     await this.refreshEvents();
+                                }
+                            },
+                            copyWeek: {
+                                text: 'Copy Week',
+                                click: () => {
+                                    // console.log("Click copyWeek");
+                                    this.showCopyWeekDialog();
                                 }
                             }
                         },
@@ -1452,6 +1460,170 @@
                     this.calendar.on('eventAdd', updateOnChange);
                     this.calendar.on('eventChange', updateOnChange);
                     this.calendar.on('eventRemove', updateOnChange);
+                },
+
+                // Updated showCopyWeekDialog function with improved error handling and date management
+                showCopyWeekDialog: function () {
+                    const currentView = this.calendar.view;
+                    if (!currentView) {
+                        console.error('Calendar view not initialized');
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Calendar not properly initialized. Please refresh the page.',
+                            icon: 'error'
+                        });
+                        return;
+                    }
+
+                    // Ensure proper date handling with defensive checks
+                    try {
+                        const weekStart = currentView.activeStart;
+                        const weekEnd = new Date(currentView.activeEnd);
+
+                        if (!weekStart || !weekEnd) {
+                            throw new Error('Invalid date range');
+                        }
+
+                        weekEnd.setDate(weekEnd.getDate() - 1); // Adjust to show actual end of week
+
+                        const nextWeekStart = new Date(weekStart);
+                        nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+                        const nextWeekEnd = new Date(weekEnd);
+                        nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
+
+                        // Format dates with error handling
+                        const formatDate = (date) => {
+                            try {
+                                return date.toLocaleDateString('en-US', {
+                                    month: 'short',
+                                    day: 'numeric',
+                                    year: 'numeric'
+                                });
+                            } catch (error) {
+                                console.error('Date formatting error:', error);
+                                return 'Invalid Date';
+                            }
+                        };
+
+                        // Validate formatted dates before showing dialog
+                        const currentWeekFormatted = formatDate(weekStart) + ' to ' + formatDate(weekEnd);
+                        const nextWeekFormatted = formatDate(nextWeekStart) + ' to ' + formatDate(nextWeekEnd);
+
+                        if (currentWeekFormatted.includes('Invalid Date') || nextWeekFormatted.includes('Invalid Date')) {
+                            throw new Error('Invalid date formatting');
+                        }
+
+                        Swal.fire({
+                            title: 'Copy Week Schedule',
+                            html: `
+                Do you want to copy schedules from<br>
+                <b>${currentWeekFormatted}</b><br>
+                to<br>
+                <b>${nextWeekFormatted}</b>?
+            `,
+                            icon: 'question',
+                            showCancelButton: true,
+                            confirmButtonColor: '#158E52',
+                            cancelButtonColor: '#d33',
+                            confirmButtonText: 'Yes, copy schedules',
+                            showLoaderOnConfirm: true,
+                            preConfirm: () => {
+                                return this.copyWeekSchedules(weekStart, weekEnd)
+                                    .catch(error => {
+                                        Swal.showValidationMessage(`Copy failed: ${error.message}`);
+                                        return false;
+                                    });
+                            }
+                        }).then((result) => {
+                            if (result.isConfirmed) {
+                                Swal.fire({
+                                    title: 'Request has been sent',
+                                    text: 'Check for changes within the next few minutes',
+                                    icon: 'success',
+                                    confirmButtonColor: '#158E52'
+                                }).then(() => {
+                                    this.calendar.next();
+                                });
+                            }
+                        }).catch(error => {
+                            console.error('Dialog error:', error);
+                            Swal.fire({
+                                title: 'Error',
+                                text: 'An unexpected error occurred. Please try again.',
+                                icon: 'error'
+                            });
+                        });
+
+                    } catch (error) {
+                        console.error('showCopyWeekDialog error:', error);
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Failed to prepare date range for copying. Please try again.',
+                            icon: 'error'
+                        });
+                    }
+                },
+
+                // Updated copyWeekSchedules function with proper error handling and API interaction
+                copyWeekSchedules: async function (weekStart, weekEnd) {
+                    if (!weekStart || !weekEnd) {
+                        throw new Error('Invalid date parameters');
+                    }
+
+                    // Format dates for API call
+                    const formattedStart = weekStart.toISOString().split('T')[0];
+                    const formattedEnd = weekEnd.toISOString().split('T')[0];
+
+                    // Validate date format
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(formattedStart) || !/^\d{4}-\d{2}-\d{2}$/.test(formattedEnd)) {
+                        throw new Error('Invalid date format');
+                    }
+
+                    return new Promise((resolve, reject) => {
+                        $.ajax({
+                            url: `https://xrmy-stin-hzw8.n7.xano.io/api:t_v_V8iM/copy_schedules_add_days`,
+                            method: "GET",
+                            timeout: 30000, // 30 second timeout
+                            headers: {
+                                "X-Tadabase-App-id": this.tb_app_id,
+                                "X-Tadabase-App-Key": this.tb_app_key,
+                                "X-Tadabase-App-Secret": this.tb_app_secret,
+                                "Authorization": "Bearer h3-6w8xKmnx-WQmh3-8w6xUirs-VUeS"
+                            },
+                            data: {
+                                start_date: formattedStart,
+                                end_date: formattedEnd
+                            },
+                            success: (response) => {
+                                try {
+                                    if (!response) {
+                                        throw new Error('Empty response from server');
+                                    }
+
+                                    // Handle both string and parsed JSON responses
+                                    const parsedData = typeof response === 'string' ? JSON.parse(response) : response;
+
+                                    if (!parsedData) {
+                                        throw new Error('Failed to parse server response');
+                                    }
+
+                                    console.log('Copy schedules response:', parsedData);
+                                    resolve(true);
+                                } catch (error) {
+                                    console.error('Error processing response:', error);
+                                    reject(new Error('Failed to process server response'));
+                                }
+                            },
+                            error: (jqXHR, textStatus, errorThrown) => {
+                                console.error('API Error:', {
+                                    status: jqXHR.status,
+                                    textStatus: textStatus,
+                                    errorThrown: errorThrown
+                                });
+                                reject(new Error(`Server error: ${textStatus || 'Unknown error'}`));
+                            }
+                        });
+                    });
                 },
 
                 // Update the refreshEvents function to ensure proper order of events
