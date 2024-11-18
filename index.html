@@ -1480,29 +1480,31 @@
                         return;
                     }
 
-                    // Ensure proper date handling with defensive checks
                     try {
-                        const weekStart = currentView.activeStart;
-                        const weekEnd = new Date(currentView.activeEnd);
+                        // Get the formatted dates that are already timezone-independent
+                        const formattedStart = currentView.activeStart.toISOString().split('T')[0];
+                        const formattedEnd = new Date(currentView.activeEnd).toISOString().split('T')[0];
 
-                        if (!weekStart || !weekEnd) {
-                            throw new Error('Invalid date range');
-                        }
-
+                        // Create Date objects from the formatted strings to ensure consistency
+                        const weekStart = new Date(formattedStart + 'T12:00:00Z');
+                        const weekEnd = new Date(formattedEnd + 'T12:00:00Z');
                         weekEnd.setDate(weekEnd.getDate() - 1); // Adjust to show actual end of week
 
+                        // Calculate next week's dates using the same formatted string approach
                         const nextWeekStart = new Date(weekStart);
                         nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+
                         const nextWeekEnd = new Date(weekEnd);
                         nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
 
-                        // Format dates with error handling
+                        // Format dates for display using UTC to ensure consistency
                         const formatDate = (date) => {
                             try {
-                                return date.toLocaleDateString('en-US', {
+                                return new Date(date.toISOString()).toLocaleDateString('en-US', {
                                     month: 'short',
                                     day: 'numeric',
-                                    year: 'numeric'
+                                    year: 'numeric',
+                                    timeZone: 'UTC'
                                 });
                             } catch (error) {
                                 console.error('Date formatting error:', error);
@@ -1510,7 +1512,7 @@
                             }
                         };
 
-                        // Validate formatted dates before showing dialog
+                        // Format dates for display
                         const currentWeekFormatted = formatDate(weekStart) + ' to ' + formatDate(weekEnd);
                         const nextWeekFormatted = formatDate(nextWeekStart) + ' to ' + formatDate(nextWeekEnd);
 
@@ -1521,11 +1523,11 @@
                         Swal.fire({
                             title: 'Copy Week Schedule',
                             html: `
-                Do you want to copy schedules from<br>
-                <b>${currentWeekFormatted}</b><br>
-                to<br>
-                <b>${nextWeekFormatted}</b>?
-            `,
+                                Do you want to copy schedules from<br>
+                                <b>${currentWeekFormatted}</b><br>
+                                to<br>
+                                <b>${nextWeekFormatted}</b>?
+                            `,
                             icon: 'question',
                             showCancelButton: true,
                             confirmButtonColor: '#158E52',
