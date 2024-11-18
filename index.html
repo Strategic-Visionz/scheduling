@@ -6,6 +6,11 @@
     <title>Weekly Employee Schedule</title>
 
     <head>
+        <!-- PREVENT CACHING IN IFRAME -->
+        <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+        <meta http-equiv="Pragma" content="no-cache">
+        <meta http-equiv="Expires" content="0">
+
         <!-- BOOTSTRAP -->
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
             integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
@@ -723,6 +728,87 @@
             display: inline-block;
             vertical-align: middle;
         }
+
+        /* Fullscreen Loader Styles */
+        .chhj-fullscreen-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .chhj-loader-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+        }
+
+        .chhj-loader-content {
+            position: relative;
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            min-width: 300px;
+        }
+
+        .chhj-loader-text {
+            margin-top: 1rem;
+            font-size: 1.25rem;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .chhj-loader-details {
+            margin-top: 0.5rem;
+            color: #666;
+            font-size: 0.875rem;
+        }
+
+        /* Center the loader in the content box */
+        .chhj-loader-content .chhj-loader {
+            margin: 0 auto;
+        }
+
+        /* Animation for the loader text */
+        @keyframes chhj-ellipsis {
+            0% {
+                content: '';
+            }
+
+            25% {
+                content: '.';
+            }
+
+            50% {
+                content: '..';
+            }
+
+            75% {
+                content: '...';
+            }
+
+            100% {
+                content: '';
+            }
+        }
+
+        .chhj-loader-text::after {
+            content: '';
+            display: inline-block;
+            width: 24px;
+            animation: chhj-ellipsis 2s infinite;
+        }
     </style>
 </head>
 
@@ -772,16 +858,36 @@
             </div>
         </div>
 
+        <div class="chhj-fullscreen-loader">
+            <div class="chhj-loader-backdrop"></div>
+            <div class="chhj-loader-content">
+                <div class="chhj-loader chhj-loader-segment"></div>
+                <div class="chhj-loader-text">Loading schedule data</div>
+                <div class="chhj-loader-details">Please wait while we fetch all necessary information</div>
+            </div>
+        </div>
+
         <script>
             window.HunkProScheduler = {
                 FullCalendar: null,
                 calendar: null,
                 shifts: [], // Store shifts data
                 availability: [], // Store availability data
-                regularDayOffs: [],
                 tb_app_id: 'VWQWR8A9NZ',
                 tb_app_key: 'GzkHdwxG3lKE',
                 tb_app_secret: 'g8qR0yK8Jv8pW8Op8T1vtxJkBFC8d8pp',
+
+                overrideDates: new Map(),
+
+                // isRefreshing: false,
+                refreshQueue: Promise.resolve(),
+                lastRefreshTime: 0,
+                REFRESH_COOLDOWN: 800, // minimum ms between refreshes
+
+                _refreshTimeout: null,
+                _refreshDelay: 800, // Configurable delay
+                _pendingRefreshParams: null, // Store the latest refresh parameters
+                isRefreshing: false,
 
                 availabilityClassMap: {
                     'Regular Day Off': 'hunkpro-unavailable-regular',
@@ -792,23 +898,61 @@
                     'Suspension': 'hunkpro-unavailable-suspension'
                 },
 
-                overrideDates: new Map(),
+                showFullScreenLoader: function () {
+                    const loader = document.querySelector('.chhj-fullscreen-loader');
+                    if (loader) {
+                        loader.style.display = 'flex';
+                    }
+                },
 
-                init: function () {
-                    // Add jQuery dependency before FullCalendar
-                    const jqueryScript = document.createElement('script');
-                    jqueryScript.src = 'https://code.jquery.com/jquery-3.6.0.min.js';
-                    jqueryScript.onload = () => {
-                        const scriptElement = document.createElement('script');
-                        scriptElement.src = 'https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@6.1.15/index.global.min.js';
-                        scriptElement.onload = () => {
-                            this.FullCalendar = window.FullCalendar;
-                            window.FullCalendar = null;
-                            this.loadData();
-                        };
-                        document.head.appendChild(scriptElement);
-                    };
-                    document.head.appendChild(jqueryScript);
+                hideFullScreenLoader: function () {
+                    const loader = document.querySelector('.chhj-fullscreen-loader');
+                    if (loader) {
+                        loader.style.display = 'none';
+                    }
+                },
+
+                init: async function () {
+                    this.showFullScreenLoader(); // Show loader before starting initialization
+
+                    try {
+                        // Add jQuery dependency before FullCalendar
+                        await new Promise((resolve) => {
+                            const jqueryScript = document.createElement('script');
+                            jqueryScript.src = 'https://code.jquery.com/jquery-3.6.0.min.js';
+                            jqueryScript.onload = resolve;
+                            document.head.appendChild(jqueryScript);
+                        });
+
+                        // Load FullCalendar
+                        await new Promise((resolve) => {
+                            const scriptElement = document.createElement('script');
+                            scriptElement.src = 'https://cdn.jsdelivr.net/npm/fullcalendar-scheduler@6.1.15/index.global.min.js';
+                            scriptElement.onload = () => {
+                                this.FullCalendar = window.FullCalendar;
+                                window.FullCalendar = null;
+                                resolve();
+                            };
+                            document.head.appendChild(scriptElement);
+                        });
+
+                        // Load initial data
+                        const employees = await this.fetchEmployees();
+                        this.initializeCalendar(employees);
+
+                        // Fetch all required data
+                        await this.refreshEvents();
+
+                        // Hide loader after everything is loaded
+                        this.hideFullScreenLoader();
+                    } catch (error) {
+                        console.error('Initialization error:', error);
+                        // Show error in loader
+                        const loaderText = document.querySelector('.chhj-loader-text');
+                        const loaderDetails = document.querySelector('.chhj-loader-details');
+                        if (loaderText) loaderText.textContent = 'Error loading schedule';
+                        if (loaderDetails) loaderDetails.textContent = 'Please refresh the page to try again';
+                    }
                 },
 
                 fetchEmployees: function () {
@@ -917,8 +1061,6 @@
                                             classNames: [cssClass],
                                             allDay: true
                                         };
-
-
                                     } catch (err) {
                                         console.error('Error processing schedule item:', err, item);
                                         return null;
@@ -935,7 +1077,6 @@
                         });
                     });
                 },
-
                 fetchAvailability: function () {
                     const viewStart = this.calendar.view.activeStart;
                     const viewEnd = this.calendar.view.activeEnd;
@@ -969,32 +1110,25 @@
                                 const parsedData = JSON.parse(data);
                                 const availability = parsedData.items.map(item => {
                                     try {
-                                        // Get the original start and end dates
-                                        const originalStart = new Date(item.field_428.start.split(' ')[0]);
-                                        const originalEnd = new Date(item.field_428.end.split(' ')[0]);
+                                        const start = item.field_428.start.split(' ')[0];
+                                        // Add one day to the end date to make it inclusive
+                                        const endDate = new Date(item.field_428.end.split(' ')[0]);
+                                        endDate.setDate(endDate.getDate() + 1);
+                                        const end = endDate.toISOString().split('T')[0];
 
-                                        // Adjust end date to include the full last day
-                                        const adjustedEnd = new Date(originalEnd);
-                                        adjustedEnd.setDate(adjustedEnd.getDate() + 1);
-
-                                        const availabilityType = item.field_67;
+                                        // Get the availability type and find corresponding CSS class
+                                        const availabilityType = item.field_67 || 'Regular Day Off';
                                         const cssClass = classMap[availabilityType] || 'hunkpro-unavailable-regular';
 
-                                        // Create the event
                                         return {
                                             id: item.id,
                                             resourceId: item.field_64[0],
-                                            start: originalStart.toISOString().split('T')[0],
-                                            end: adjustedEnd.toISOString().split('T')[0],
+                                            start: `${start}T00:00:00`,
+                                            end: `${end}T00:00:00`,
                                             title: availabilityType,
                                             display: 'background',
                                             textColor: 'black',
-                                            classNames: [cssClass, 'hunkpro-unavailable-text'],
-                                            extendedProps: {
-                                                originalStart: item.field_428.start,
-                                                originalEnd: item.field_428.end,
-                                                type: availabilityType
-                                            }
+                                            classNames: [cssClass, 'hunkpro-unavailable-text']
                                         };
                                     } catch (error) {
                                         console.error('Error processing availability item:', error, item);
@@ -1011,7 +1145,6 @@
                         });
                     });
                 },
-
                 fetchRegularDayOffs: function () {
                     const viewStart = this.calendar.view.activeStart;
                     const viewEnd = this.calendar.view.activeEnd;
@@ -1069,35 +1202,39 @@
                                         };
 
                                         // Get the selected days of the week
-                                        const selectedDays = item.field_475
-                                            .filter(day => day !== "")
-                                            .map(day => dayMapping[day]);
+                                        const selectedDays = item.field_475.filter(day => day !== "").map(day => dayMapping[day]);
 
                                         // Create events for each selected day within the view range
                                         let currentDate = new Date(viewStart);
 
                                         while (currentDate < viewEnd) {
                                             if (selectedDays.includes(currentDate.getDay())) {
+                                                // Set the time to noon to avoid timezone issues
                                                 const eventDate = new Date(currentDate);
                                                 eventDate.setHours(12, 0, 0, 0);
                                                 const formattedEventDate = eventDate.toISOString().split('T')[0];
 
-                                                // Create next day date
+                                                // Create next day date properly
                                                 const nextDay = new Date(eventDate);
                                                 nextDay.setDate(nextDay.getDate() + 1);
                                                 const formattedNextDay = nextDay.toISOString().split('T')[0];
 
                                                 const hasExistingAvailability = this.availability.some(avail => {
+                                                    // Normalize start date to beginning of day
                                                     const availStartDate = new Date(avail.start);
                                                     availStartDate.setHours(0, 0, 0, 0);
 
+                                                    // Normalize end date to end of day
+                                                    // Also subtract one day since end dates are exclusive
                                                     const availEndDate = new Date(avail.end);
                                                     availEndDate.setDate(availEndDate.getDate() - 1);
                                                     availEndDate.setHours(23, 59, 59, 999);
 
+                                                    // Normalize check date to noon
                                                     const checkDate = new Date(eventDate);
                                                     checkDate.setHours(12, 0, 0, 0);
 
+                                                    // Compare dates with normalized timestamps
                                                     return avail.resourceId === item.field_64[0] &&
                                                         checkDate >= availStartDate &&
                                                         checkDate <= availEndDate;
@@ -1130,7 +1267,6 @@
                             });
                     });
                 },
-
                 addShift: function (newShift) {
                     // Create FormData object
                     const form = new FormData();
@@ -1219,12 +1355,15 @@
                         // Initialize calendar before fetching schedules
                         this.initializeCalendar(employees);
 
-                        console.log('refresh events from loadData()');
-                        // await this.refreshEvents();
-
+                        // Initial data load
+                        await this.refreshEvents(true); // true indicates initial load
                     } catch (error) {
                         console.error('Error loading data:', error);
-                        alert('Error loading schedule data. Please try refreshing the page.');
+                        await Swal.fire({
+                            title: 'Error',
+                            text: 'Failed to load schedule data. Please refresh the page.',
+                            icon: 'error'
+                        });
                     }
                 },
 
@@ -1303,11 +1442,92 @@
                     return events;
                 },
 
+                refreshEvents: async function (isInitialLoad = false) {
+                    const now = Date.now();
+
+                    // Store the current view dates as the latest request
+                    this._lastRequestedStart = this.calendar.view.activeStart;
+                    this._lastRequestedEnd = this.calendar.view.activeEnd;
+
+                    // If we're already refreshing or within cooldown, queue this refresh
+                    if (this.isRefreshing || (!isInitialLoad && now - this.lastRefreshTime < this.REFRESH_COOLDOWN)) {
+                        // Queue this refresh, but it will use the most recent dates when executed
+                        this.refreshQueue = this.refreshQueue.then(() => this._executeRefresh(isInitialLoad));
+                        return this.refreshQueue;
+                    }
+
+                    return this._executeRefresh(isInitialLoad);
+                },
+
+                // Private method to handle the actual refresh logic
+                _executeRefresh: async function (isInitialLoad) {
+                    if (this.isRefreshing) return;
+
+                    this.isRefreshing = true;
+                    this.lastRefreshTime = Date.now();
+
+                    try {
+                        console.log(`Refreshing events... (${isInitialLoad ? 'initial load' : 'update'})`);
+
+                        // Use the most recently requested dates instead of current view dates
+                        const viewStart = this._lastRequestedStart || this.calendar.view.activeStart;
+                        const viewEnd = this._lastRequestedEnd || this.calendar.view.activeEnd;
+
+                        // Clear the stored dates
+                        this._lastRequestedStart = null;
+                        this._lastRequestedEnd = null;
+
+                        // Fetch data in parallel
+                        const [schedules, availabilityData] = await Promise.all([
+                            this.fetchSchedules(),
+                            this.fetchAvailability()
+                        ]);
+
+                        // Store the availability data first
+                        this.availability = availabilityData;
+
+                        // Then fetch regular day offs
+                        const regularDayOffs = await this.fetchRegularDayOffs();
+
+                        // Store the fetched data
+                        this.shifts = schedules;
+                        // Combine regular availability with regular day offs
+                        this.availability = [...availabilityData, ...regularDayOffs];
+
+                        // Remove existing events only after we have new data
+                        this.calendar.removeAllEvents();
+
+                        // Batch add all events
+                        const allEvents = [
+                            ...this.shifts.map(shift => ({
+                                ...shift,
+                                allDay: true
+                            })),
+                            ...this.availability.map(avail => ({
+                                ...avail,
+                                display: 'background',
+                                allDay: true
+                            }))
+                        ];
+
+                        this.calendar.addEventSource(allEvents);
+
+                        // Update counts only after all events are added
+                        await this.updateAllCounts();
+
+                        return true;
+                    } catch (error) {
+                        console.error('Error refreshing events:', error);
+                        throw error;
+                    } finally {
+                        this.isRefreshing = false;
+                    }
+                },
+
                 initializeCalendar: function (employees) {
                     const calendarEl = document.getElementById('hunkpro-calendar');
 
                     this.calendar = new this.FullCalendar.Calendar(calendarEl, {
-                        timeZone: 'America/New_York', // Force EST timezone
                         initialView: 'resourceTimelineWeek',
                         firstDay: 1,
                         schedulerLicenseKey: 'CC-Attribution-NonCommercial-NoDerivatives',
@@ -1325,8 +1545,9 @@
                         headerToolbar: {
                             left: 'today prev,next',
                             center: 'title',
-                            right: 'refresh'
+                            right: 'copyWeek refresh'
                         },
+
 
                         // Custom refresh button
                         customButtons: {
@@ -1335,6 +1556,13 @@
                                 click: async () => {
                                     console.log('refresh events from initializeCalendar()');
                                     await this.refreshEvents();
+                                }
+                            },
+                            copyWeek: {
+                                text: 'Copy Week',
+                                click: () => {
+                                    // console.log("Click copyWeek");
+                                    this.showCopyWeekDialog();
                                 }
                             }
                         },
@@ -1346,7 +1574,7 @@
                                 duration: { weeks: 1 },
                                 slotDuration: { days: 1 },
                                 slotLabelFormat: [
-                                    { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'America/New_York' }
+                                    { weekday: 'short', month: 'numeric', day: 'numeric' }
                                 ]
                             }
                         },
@@ -1355,19 +1583,11 @@
                         // Also update the datesSet handler in initializeCalendar
                         datesSet: async (dateInfo) => {
                             try {
-
-                                const estStart = new Date(dateInfo.start.toLocaleString('en-US', {
-                                    timeZone: 'America/New_York'
-                                }));
-                                const estEnd = new Date(dateInfo.end.toLocaleString('en-US', {
-                                    timeZone: 'America/New_York'
-                                }));
-
                                 // Only refresh if it's a navigation change
-                                if (this._lastViewStart?.getTime() !== estStart.getTime()) {
+                                if (this._lastViewStart?.getTime() !== dateInfo.start.getTime()) {
                                     console.log('Date range changed:', {
-                                        start: estStart,
-                                        end: estEnd,
+                                        start: dateInfo.start,
+                                        end: dateInfo.end,
                                         lastStart: this._lastViewStart
                                     });
 
@@ -1394,16 +1614,7 @@
                         }],
 
                         // Event handlers
-                        // Update date handling in select callback
-                        select: (info) => {
-                            const estDate = new Date(info.start.toLocaleString('en-US', {
-                                timeZone: 'America/New_York'
-                            }));
-                            this.handleSelect({
-                                ...info,
-                                start: estDate
-                            });
-                        },
+                        select: (info) => this.handleSelect(info),
                         eventClick: (info) => this.handleEventClick(info),
                         eventDrop: (info) => this.handleEventDrop(info),
 
@@ -1453,63 +1664,155 @@
                     this.calendar.on('eventRemove', updateOnChange);
                 },
 
-                // Update the refreshEvents function to ensure proper order of events
-                refreshEvents: async function () {
+                showCopyWeekDialog: function () {
+                    const currentView = this.calendar.view;
+                    if (!currentView) {
+                        console.error('Calendar view not initialized');
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Calendar not properly initialized. Please refresh the page.',
+                            icon: 'error'
+                        });
+                        return;
+                    }
+
                     try {
-                        // First fetch all data
-                        const [schedules, availabilityData] = await Promise.all([
-                            this.fetchSchedules(),
-                            this.fetchAvailability()
-                        ]);
+                        // Get the formatted dates directly from the view
+                        const formattedStart = currentView.activeStart.toISOString().split('T')[0];
+                        const formattedEnd = currentView.activeEnd.toISOString().split('T')[0];
 
-                        // Store initial data
-                        this.shifts = schedules;
-                        this.availability = availabilityData;
+                        // Create Date objects using UTC to avoid timezone issues
+                        const weekStart = new Date(Date.UTC(
+                            currentView.activeStart.getFullYear(),
+                            currentView.activeStart.getMonth(),
+                            currentView.activeStart.getDate()
+                        ));
 
-                        // Now fetch regular day offs after availability is stored
-                        const regularDayOffs = await this.fetchRegularDayOffs();
+                        const weekEnd = new Date(Date.UTC(
+                            currentView.activeEnd.getFullYear(),
+                            currentView.activeEnd.getMonth(),
+                            currentView.activeEnd.getDate() - 1  // Subtract 1 from end date only if needed for display
+                        ));
 
-                        console.log('Regular day offs before adding to calendar:', regularDayOffs);
+                        // Calculate next week's dates
+                        const nextWeekStart = new Date(weekStart);
+                        nextWeekStart.setDate(nextWeekStart.getDate() + 7);
 
-                        // Remove existing events
-                        this.calendar.removeAllEvents();
+                        const nextWeekEnd = new Date(weekEnd);
+                        nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
 
-                        // Process each type of event separately
-                        regularDayOffs.forEach(event => {
-                            this.calendar.addEvent({
-                                ...event,
-                                display: 'background',
-                                allDay: true
+                        // Format dates for display using UTC to ensure consistency
+                        const formatDate = (date) => {
+                            return date.toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                                timeZone: 'UTC'
                             });
+                        };
+
+                        // Format dates for display
+                        const currentWeekFormatted = formatDate(weekStart) + ' to ' + formatDate(weekEnd);
+                        const nextWeekFormatted = formatDate(nextWeekStart) + ' to ' + formatDate(nextWeekEnd);
+
+                        if (currentWeekFormatted.includes('Invalid Date') || nextWeekFormatted.includes('Invalid Date')) {
+                            throw new Error('Invalid date formatting');
+                        }
+
+                        // Show the dialog with correct dates
+                        Swal.fire({
+                            title: 'Copy Week Schedule',
+                            html: `
+                                Do you want to copy schedules from<br>
+                                <b>${currentWeekFormatted}</b><br>
+                                to<br>
+                                <b>${nextWeekFormatted}</b>?
+                            `,
+                            icon: 'question',
+                            showCancelButton: true,
+                            confirmButtonColor: '#158E52',
+                            cancelButtonColor: '#d33',
+                            confirmButtonText: 'Yes, copy schedules',
+                            showLoaderOnConfirm: true,
+                            preConfirm: () => {
+                                return this.copyWeekSchedules(weekStart, weekEnd)
+                                    .catch(error => {
+                                        Swal.showValidationMessage(`Copy failed: ${error.message}`);
+                                        return false;
+                                    });
+                            }
                         });
-
-                        availabilityData.forEach(event => {
-                            this.calendar.addEvent({
-                                ...event,
-                                display: 'background',
-                                allDay: true
-                            });
-                        });
-
-                        schedules.forEach(event => {
-                            this.calendar.addEvent({
-                                ...event,
-                                allDay: true
-                            });
-                        });
-
-                        // Update the combined availability for future checks
-                        this.availability = [...availabilityData, ...regularDayOffs];
-
-                        // Force calendar to rerender
-                        this.calendar.render();
-
-                        // Update counts
-                        this.updateAllCounts();
 
                     } catch (error) {
-                        console.error('Error refreshing events:', error);
+                        console.error('showCopyWeekDialog error:', error);
+                        Swal.fire({
+                            title: 'Error',
+                            text: 'Failed to prepare date range for copying. Please try again.',
+                            icon: 'error'
+                        });
                     }
+                },
+
+                // Updated copyWeekSchedules function with proper error handling and API interaction
+                copyWeekSchedules: async function (weekStart, weekEnd) {
+                    if (!weekStart || !weekEnd) {
+                        throw new Error('Invalid date parameters');
+                    }
+
+                    // Format dates for API call
+                    const formattedStart = weekStart.toISOString().split('T')[0];
+                    const formattedEnd = weekEnd.toISOString().split('T')[0];
+
+                    // Validate date format
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(formattedStart) || !/^\d{4}-\d{2}-\d{2}$/.test(formattedEnd)) {
+                        throw new Error('Invalid date format');
+                    }
+
+                    return new Promise((resolve, reject) => {
+                        $.ajax({
+                            url: `https://xrmy-stin-hzw8.n7.xano.io/api:t_v_V8iM/copy_schedules_add_days`,
+                            method: "GET",
+                            timeout: 30000, // 30 second timeout
+                            headers: {
+                                "X-Tadabase-App-id": this.tb_app_id,
+                                "X-Tadabase-App-Key": this.tb_app_key,
+                                "X-Tadabase-App-Secret": this.tb_app_secret,
+                                "Authorization": "Bearer h3-6w8xKmnx-WQmh3-8w6xUirs-VUeS"
+                            },
+                            data: {
+                                start_date: formattedStart,
+                                end_date: formattedEnd
+                            },
+                            success: (response) => {
+                                try {
+                                    if (!response) {
+                                        throw new Error('Empty response from server');
+                                    }
+
+                                    // Handle both string and parsed JSON responses
+                                    const parsedData = typeof response === 'string' ? JSON.parse(response) : response;
+
+                                    if (!parsedData) {
+                                        throw new Error('Failed to parse server response');
+                                    }
+
+                                    console.log('Copy schedules response:', parsedData);
+                                    resolve(true);
+                                } catch (error) {
+                                    console.error('Error processing response:', error);
+                                    reject(new Error('Failed to process server response'));
+                                }
+                            },
+                            error: (jqXHR, textStatus, errorThrown) => {
+                                console.error('API Error:', {
+                                    status: jqXHR.status,
+                                    textStatus: textStatus,
+                                    errorThrown: errorThrown
+                                });
+                                reject(new Error(`Server error: ${textStatus || 'Unknown error'}`));
+                            }
+                        });
+                    });
                 },
 
                 handleSelect: function (info) {
@@ -1593,49 +1896,52 @@
                 },
 
                 // Update handleEventDrop to handle suspensions
-                handleEventDrop: function (info) {
-                    let event = info.event;
-                    let resource = info.event.getResources()[0]._resource;
-
+                handleEventDrop: async function (info) {
                     const conflict = this.checkAvailability(
                         info.event.getResources()[0].id,
                         info.event.start
                     );
 
                     if (conflict) {
-                        if (conflict.type === 'suspension_conflict') {
-                            Swal.fire({
+                        if (conflict.type === 'suspension_conflict' || conflict.type === 'shift_conflict') {
+                            const message = conflict.type === 'suspension_conflict'
+                                ? "Employee is suspended during this period"
+                                : "Employee already has a shift scheduled for this day";
+
+                            await Swal.fire({
                                 title: "Cannot Move Schedule",
-                                text: "Employee is suspended during this period",
+                                text: message,
                                 icon: "error"
                             });
                             info.revert();
-                        } else if (conflict.type === 'shift_conflict') {
-                            Swal.fire({
-                                title: "Cannot Move Schedule",
-                                text: "Employee already has a shift scheduled for this day",
-                                icon: "error"
-                            });
-                            info.revert();
-                        } else {
-                            Swal.fire({
-                                icon: "warning",
-                                title: "The employee is unavailable at this date. ",
-                                text: "Are you sure you want to add a schedule?",
-                                showDenyButton: true,
-                                showCancelButton: true,
-                                confirmButtonText: "Yes",
-                                denyButtonText: `No`
-                            }).then((result) => {
-                                if (result.isConfirmed) {
-                                    this.eventDropUpdate(info.event);
-                                } else {
-                                    info.revert();
-                                }
-                            });
+                            return;
                         }
-                    } else {
-                        this.eventDropUpdate(info.event);
+
+                        const result = await Swal.fire({
+                            icon: "warning",
+                            title: "The employee is unavailable at this date.",
+                            text: "Are you sure you want to add a schedule?",
+                            showCancelButton: true,
+                            confirmButtonText: "Yes",
+                            cancelButtonText: "No"
+                        });
+
+                        if (!result.isConfirmed) {
+                            info.revert();
+                            return;
+                        }
+                    }
+
+                    try {
+                        await this.eventDropUpdate(info.event);
+                    } catch (error) {
+                        console.error('Error updating event:', error);
+                        info.revert();
+                        await Swal.fire({
+                            title: 'Error',
+                            text: 'Failed to update schedule. Please try again.',
+                            icon: 'error'
+                        });
                     }
                 },
 
@@ -1848,17 +2154,14 @@
                     const position = document.getElementById('hunkpro-shift-position').value;
                     const isAddMode = modal.dataset.mode === 'add';
 
-                    // Clear any existing errors
                     this.clearError();
 
-                    // Enhanced position validation
                     if (!position || position.trim() === '') {
                         this.showError('Please select a position before continuing');
                         return;
                     }
 
                     try {
-                        // Show loader with appropriate message
                         this.toggleLoader(true, isAddMode ? 'Adding Shift...' : 'Updating Shift...');
 
                         if (isAddMode) {
@@ -1869,8 +2172,7 @@
                             const newShift = {
                                 user: modal.dataset.resourceId,
                                 position: position,
-                                // date: modal.dataset.start,
-                                date: selectedDate || ''
+                                date: selectedDate
                             };
 
                             await this.addShift(newShift);
@@ -1883,24 +2185,24 @@
 
                             await this.updateShift({
                                 id: event?.id || '',
-                                date: selectedDate || '',
+                                date: selectedDate,
                                 position: $('#hunkpro-shift-position').val() || ''
                             });
                         }
 
-                        // Hide loader and close modal on success
-                        this.toggleLoader(false);
+                        // Close modal before refresh to prevent UI lag
                         const bsModal = bootstrap.Modal.getInstance(modal);
                         bsModal.hide();
-                        this.updateAllCounts();
+
+                        // Refresh events after modal is closed
+                        await this.refreshEvents();
 
                     } catch (error) {
                         console.error('Error handling form submit:', error);
-                        // Hide loader and show error
                         this.toggleLoader(false);
                         this.showError('Failed to save shift. Please try again.');
-                        // Clear overrides on error as well
-                        // this.clearEmployeeOverrides(resourceId);
+                    } finally {
+                        this.clearAllOverrides();
                     }
                 },
 
@@ -1953,12 +2255,8 @@
                 },
 
                 getWeeklyShiftCount: function (resourceId) {
-                    const viewStart = new Date(this.calendar.view.activeStart.toLocaleString('en-US', {
-                        timeZone: 'America/New_York'
-                    }));
-                    const viewEnd = new Date(this.calendar.view.activeEnd.toLocaleString('en-US', {
-                        timeZone: 'America/New_York'
-                    }));
+                    const viewStart = this.calendar.view.activeStart;
+                    const viewEnd = this.calendar.view.activeEnd;
 
                     return this.shifts.filter(shift =>
                         shift.resourceId === resourceId &&
@@ -2162,6 +2460,33 @@
                 clearAllOverrides: function () {
                     this.overrideDates.clear();
                 },
+
+                debouncedRefresh: async function () {
+                    if (this._refreshTimeout) {
+                        clearTimeout(this._refreshTimeout);
+                    }
+
+                    return new Promise((resolve) => {
+                        this._refreshTimeout = setTimeout(async () => {
+                            if (this.isRefreshing) {
+                                console.log('Refresh already in progress, skipping...');
+                                resolve();
+                                return;
+                            }
+
+                            try {
+                                this.isRefreshing = true;
+                                await this.refreshEvents();
+                            } catch (error) {
+                                console.error('Error in debouncedRefresh:', error);
+                            } finally {
+                                this.isRefreshing = false;
+                                resolve();
+                            }
+                        }, this._refreshDelay);
+                    });
+                },
+
             };
 
             // Initialize the scheduler
