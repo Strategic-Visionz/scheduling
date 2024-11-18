@@ -1130,7 +1130,7 @@
                             });
                     });
                 },
-                
+
                 addShift: function (newShift) {
                     // Create FormData object
                     const form = new FormData();
@@ -1307,6 +1307,7 @@
                     const calendarEl = document.getElementById('hunkpro-calendar');
 
                     this.calendar = new this.FullCalendar.Calendar(calendarEl, {
+                        timeZone: 'America/New_York', // Force EST timezone
                         initialView: 'resourceTimelineWeek',
                         firstDay: 1,
                         schedulerLicenseKey: 'CC-Attribution-NonCommercial-NoDerivatives',
@@ -1345,7 +1346,7 @@
                                 duration: { weeks: 1 },
                                 slotDuration: { days: 1 },
                                 slotLabelFormat: [
-                                    { weekday: 'short', month: 'numeric', day: 'numeric' }
+                                    { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'America/New_York' }
                                 ]
                             }
                         },
@@ -1354,11 +1355,19 @@
                         // Also update the datesSet handler in initializeCalendar
                         datesSet: async (dateInfo) => {
                             try {
+
+                                const estStart = new Date(dateInfo.start.toLocaleString('en-US', {
+                                    timeZone: 'America/New_York'
+                                }));
+                                const estEnd = new Date(dateInfo.end.toLocaleString('en-US', {
+                                    timeZone: 'America/New_York'
+                                }));
+
                                 // Only refresh if it's a navigation change
-                                if (this._lastViewStart?.getTime() !== dateInfo.start.getTime()) {
+                                if (this._lastViewStart?.getTime() !== estStart.getTime()) {
                                     console.log('Date range changed:', {
-                                        start: dateInfo.start,
-                                        end: dateInfo.end,
+                                        start: estStart,
+                                        end: estEnd,
                                         lastStart: this._lastViewStart
                                     });
 
@@ -1385,7 +1394,16 @@
                         }],
 
                         // Event handlers
-                        select: (info) => this.handleSelect(info),
+                        // Update date handling in select callback
+                        select: (info) => {
+                            const estDate = new Date(info.start.toLocaleString('en-US', {
+                                timeZone: 'America/New_York'
+                            }));
+                            this.handleSelect({
+                                ...info,
+                                start: estDate
+                            });
+                        },
                         eventClick: (info) => this.handleEventClick(info),
                         eventDrop: (info) => this.handleEventDrop(info),
 
@@ -1935,8 +1953,12 @@
                 },
 
                 getWeeklyShiftCount: function (resourceId) {
-                    const viewStart = this.calendar.view.activeStart;
-                    const viewEnd = this.calendar.view.activeEnd;
+                    const viewStart = new Date(this.calendar.view.activeStart.toLocaleString('en-US', {
+                        timeZone: 'America/New_York'
+                    }));
+                    const viewEnd = new Date(this.calendar.view.activeEnd.toLocaleString('en-US', {
+                        timeZone: 'America/New_York'
+                    }));
 
                     return this.shifts.filter(shift =>
                         shift.resourceId === resourceId &&
