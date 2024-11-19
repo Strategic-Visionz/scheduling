@@ -809,6 +809,43 @@
             width: 24px;
             animation: chhj-ellipsis 2s infinite;
         }
+
+        /* REFRESH BUTTON/CONTAINER STYLING */
+        .fc-refresh-button {
+            min-width: 100px;
+            transition: opacity 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .fc-refresh-button:disabled {
+            opacity: 1 !important;
+            cursor: wait;
+        }
+
+        .fc-refresh-button .chhj-loader {
+            display: inline-block;
+            vertical-align: middle;
+            margin: 0 8px;
+            width: 20px;
+            height: 20px;
+        }
+
+        .refresh-loader-container {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 100px;
+            height: 100%;
+            /* padding: 4px; */
+        }
+
+        .refresh-loader-container .chhj-loader {
+            width: 20px important !;
+            height: 20px important !;
+            margin: 0;
+        }
     </style>
 </head>
 
@@ -1490,6 +1527,7 @@
 
                     this.isRefreshing = true;
                     this.lastRefreshTime = Date.now();
+                    this.updateRefreshButtonState(true); // Show loader when refresh starts
 
                     try {
                         console.log(`Refreshing events... (${isInitialLoad ? 'initial load' : 'update'})`);
@@ -1546,6 +1584,7 @@
                         throw error;
                     } finally {
                         this.isRefreshing = false;
+                        this.updateRefreshButtonState(false); // Hide loader when refresh ends
                     }
                 },
 
@@ -1579,8 +1618,11 @@
                             refresh: {
                                 text: '↻ Refresh',
                                 click: async () => {
-                                    console.log('refresh events from initializeCalendar()');
-                                    await this.refreshEvents();
+                                    try {
+                                        await this.refreshEvents();
+                                    } catch (error) {
+                                        console.error('Error refreshing events:', error);
+                                    }
                                 }
                             },
                             copyWeek: {
@@ -2484,6 +2526,31 @@
                 // Clear all overrides
                 clearAllOverrides: function () {
                     this.overrideDates.clear();
+                },
+
+                updateRefreshButtonState: function (isRefreshing) {
+                    const button = this.calendar.el.querySelector('.fc-refresh-button');
+                    if (!button) return;
+
+                    const buttonContainer = button.parentNode;
+
+                    if (isRefreshing) {
+                        // Hide button and show loader - reusing existing loader structure
+                        button.style.display = 'none';
+                        if (!buttonContainer.querySelector('.refresh-loader-container')) {
+                            const loader = document.createElement('div');
+                            loader.className = 'refresh-loader-container';
+                            loader.innerHTML = '<div class="chhj-loader chhj-loader-segment"></div>';
+                            buttonContainer.appendChild(loader);
+                        }
+                    } else {
+                        // Remove loader and show button
+                        const loader = buttonContainer.querySelector('.refresh-loader-container');
+                        if (loader) {
+                            buttonContainer.removeChild(loader);
+                        }
+                        button.style.display = '';
+                    }
                 },
 
             };
