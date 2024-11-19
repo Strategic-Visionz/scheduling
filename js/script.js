@@ -264,7 +264,8 @@ window.HunkProScheduler = {
                             const start = item.field_428.start.split(' ')[0];
                             // Add one day to the end date to make it inclusive
                             const endDate = new Date(item.field_428.end.split(' ')[0]);
-                            endDate.setDate(endDate.getDate() + 1);
+                            // endDate.setDate(endDate.getDate() + 1);
+                            endDate.setDate(endDate.getDate());
                             const end = endDate.toISOString().split('T')[0];
 
                             // Get the availability type and find corresponding CSS class
