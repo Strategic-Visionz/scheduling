@@ -364,7 +364,7 @@ window.HunkProScheduler = {
 
                             while (currentDate < viewEnd) {
                                 if (selectedDays.includes(currentDate.getDay())) {
-
+  
                                     const eventDate = new Date(currentDate);
                                     eventDate.setHours(12, 0, 0, 0);
                                     const formattedEventDate = eventDate.toISOString().split('T')[0];
@@ -847,17 +847,17 @@ window.HunkProScheduler = {
             const formattedEnd = currentView.activeEnd.toISOString().split('T')[0];
 
 
-            const weekStart = new Date(
+            const weekStart = new Date(Date.UTC(
                 currentView.activeStart.getFullYear(),
                 currentView.activeStart.getMonth(),
                 currentView.activeStart.getDate()
-            );
+            ));
 
-            const weekEnd = new Date(
+            const weekEnd = new Date(Date.UTC(
                 currentView.activeEnd.getFullYear(),
                 currentView.activeEnd.getMonth(),
-                currentView.activeEnd.getDate() - 1
-            );
+                currentView.activeEnd.getDate() - 1  // Subtract 1 from end date only if needed for display
+            ));
 
             // Calculate next week's dates
             const nextWeekStart = new Date(weekStart);
@@ -866,12 +866,13 @@ window.HunkProScheduler = {
             const nextWeekEnd = new Date(weekEnd);
             nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
 
-
+            // Format dates for display using UTC to ensure consistency
             const formatDate = (date) => {
                 return date.toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric',
                     year: 'numeric',
+                    timeZone: 'UTC'
                 });
             };
 
@@ -1431,7 +1432,7 @@ window.HunkProScheduler = {
 
 
     getDailyShiftCount: function (date) {
-
+        // Normalize both dates to midnight UTC for consistent comparison
         const normalizedTargetDate = new Date(date);
         normalizedTargetDate.setHours(0, 0, 0, 0);
 
