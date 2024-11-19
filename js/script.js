@@ -366,7 +366,7 @@ window.HunkProScheduler = {
                                 if (selectedDays.includes(currentDate.getDay())) {
                                     // Set the time to noon to avoid timezone issues
                                     const eventDate = new Date(currentDate);
-                                    eventDate.setHours(12, 0, 0, 0);
+                                    // eventDate.setHours(12, 0, 0, 0);
                                     const formattedEventDate = eventDate.toISOString().split('T')[0];
 
                                     // Create next day date properly
@@ -377,17 +377,17 @@ window.HunkProScheduler = {
                                     const hasExistingAvailability = this.availability.some(avail => {
                                         // Normalize start date to beginning of day
                                         const availStartDate = new Date(avail.start);
-                                        availStartDate.setHours(0, 0, 0, 0);
+                                        // availStartDate.setHours(0, 0, 0, 0);
 
                                         // Normalize end date to end of day
                                         // Also subtract one day since end dates are exclusive
                                         const availEndDate = new Date(avail.end);
                                         availEndDate.setDate(availEndDate.getDate() - 1);
-                                        availEndDate.setHours(23, 59, 59, 999);
+                                        // availEndDate.setHours(23, 59, 59, 999);
 
                                         // Normalize check date to noon
                                         const checkDate = new Date(eventDate);
-                                        checkDate.setHours(12, 0, 0, 0);
+                                        // checkDate.setHours(12, 0, 0, 0);
 
                                         // Compare dates with normalized timestamps
                                         return avail.resourceId === item.field_64[0] &&
@@ -555,7 +555,7 @@ window.HunkProScheduler = {
 
         // Ensure we include the full last day by setting hours to end of day
         const adjustedViewEnd = new Date(viewEnd);
-        adjustedViewEnd.setHours(23, 59, 59, 999);
+        // adjustedViewEnd.setHours(23, 59, 59, 999);
 
         // Initialize counts for each day including the last day
         for (let date = new Date(viewStart); date <= adjustedViewEnd; date.setDate(date.getDate() + 1)) {
@@ -846,18 +846,17 @@ window.HunkProScheduler = {
             const formattedStart = currentView.activeStart.toISOString().split('T')[0];
             const formattedEnd = currentView.activeEnd.toISOString().split('T')[0];
 
-            // Create Date objects using UTC to avoid timezone issues
-            const weekStart = new Date(Date.UTC(
+            const weekStart = new Date(
                 currentView.activeStart.getFullYear(),
                 currentView.activeStart.getMonth(),
                 currentView.activeStart.getDate()
-            ));
+            );
 
-            const weekEnd = new Date(Date.UTC(
+            const weekEnd = new Date(
                 currentView.activeEnd.getFullYear(),
                 currentView.activeEnd.getMonth(),
                 currentView.activeEnd.getDate() - 1  // Subtract 1 from end date only if needed for display
-            ));
+            );
 
             // Calculate next week's dates
             const nextWeekStart = new Date(weekStart);
@@ -866,13 +865,11 @@ window.HunkProScheduler = {
             const nextWeekEnd = new Date(weekEnd);
             nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
 
-            // Format dates for display using UTC to ensure consistency
             const formatDate = (date) => {
                 return date.toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric',
                     year: 'numeric',
-                    timeZone: 'UTC'
                 });
             };
 
@@ -983,7 +980,7 @@ window.HunkProScheduler = {
     handleSelect: function (info) {
         console.log('handleSelect', info);
         const conflict = this.checkAvailability(info.resource.id, info.start);
-
+        console.log('conflict', conflict);
         if (conflict) {
             if (conflict.type === 'shift_conflict') {
                 Swal.fire({
@@ -1030,7 +1027,7 @@ window.HunkProScheduler = {
         }
 
         const clickedDate = new Date(info.event.start);
-        clickedDate.setHours(12, 0, 0, 0);
+        // clickedDate.setHours(12, 0, 0, 0);
 
         const conflict = this.checkAvailability(
             info.event.getResources()[0].id,
@@ -1111,16 +1108,17 @@ window.HunkProScheduler = {
     },
 
     checkAvailability: function (resourceId, date) {
-        // First check if there's already a shift scheduled (preventing multiple shifts)
         const checkDate = new Date(date);
-        checkDate.setHours(0, 0, 0, 0);
+        const checkDateStr = checkDate.toISOString().split('T')[0];
+        console.log('checkDateStr', checkDateStr)
 
+        // First check if there's already a shift scheduled (preventing multiple shifts)
         const existingShift = this.shifts.find(shift => {
             const shiftDate = new Date(shift.start);
-            shiftDate.setHours(0, 0, 0, 0);
+            const shiftDateStr = shiftDate.toISOString().split('T')[0];
 
-            return shift.resourceId === resourceId &&
-                shiftDate.getTime() === checkDate.getTime();
+            if (shift.resourceId === resourceId) console.log('shiftDateStr', shiftDateStr);
+            return shift.resourceId === resourceId && shiftDateStr === checkDateStr;
         });
 
         // If there's already a shift, return a special conflict message
@@ -1136,21 +1134,18 @@ window.HunkProScheduler = {
         // Then check for availability conflicts
         const availabilityConflict = this.availability.find(a => {
             try {
-                // Create dates for comparison
                 const startDate = new Date(a.start);
-                startDate.setHours(0, 0, 0, 0);
+                const startDateStr = startDate.toISOString().split('T')[0];
 
                 // Create end date and subtract one day to account for the UI adjustment
                 const endDate = new Date(a.end);
-                endDate.setDate(endDate.getDate() - 1); // Subtract one day
-                endDate.setHours(23, 59, 59, 999);
+                endDate.setDate(endDate.getDate() - 1);
+                const endDateStr = endDate.toISOString().split('T')[0];
 
-                const checkDate = new Date(date);
-                checkDate.setHours(12, 0, 0, 0);
-
+                // Simple string comparison of dates
                 return a.resourceId === resourceId &&
-                    checkDate >= startDate &&
-                    checkDate <= endDate;
+                    checkDateStr >= startDateStr &&
+                    checkDateStr <= endDateStr;
             } catch (error) {
                 console.error('Error checking availability:', error);
                 return false; // Fail safe in case of date parsing errors
@@ -1432,13 +1427,12 @@ window.HunkProScheduler = {
 
 
     getDailyShiftCount: function (date) {
-        // Normalize both dates to midnight UTC for consistent comparison
         const normalizedTargetDate = new Date(date);
-        normalizedTargetDate.setHours(0, 0, 0, 0);
+        // normalizedTargetDate.setHours(0, 0, 0, 0);
 
         return this.shifts.filter(shift => {
             const shiftDate = new Date(shift.start);
-            shiftDate.setHours(0, 0, 0, 0);
+            // shiftDate.setHours(0, 0, 0, 0);
             return shiftDate.getTime() === normalizedTargetDate.getTime();
         }).length;
     },
@@ -1518,21 +1512,25 @@ window.HunkProScheduler = {
                         return false;
                     }
 
-                    // Convert date to consistent format for comparison
                     const checkDate = new Date(date);
-                    checkDate.setHours(12, 0, 0, 0);
+                    const checkDateStr = checkDate.toISOString().split('T')[0];
 
                     // Check if date is within current view range
-                    if (checkDate < viewStart || checkDate >= viewEnd) {
+                    // Normalize view dates for comparison
+                    const viewStartStr = new Date(viewStart).toISOString().split('T')[0];
+                    const viewEndStr = new Date(viewEnd).toISOString().split('T')[0];
+
+                    if (checkDateStr < viewStartStr || checkDateStr >= viewEndStr) {
                         return true;
                     }
 
-                    // Check for shifts on this date
+                    // Check for shifts on this date using normalized date comparison
                     const existingShift = this.shifts.find(shift => {
                         const shiftDate = new Date(shift.start);
-                        shiftDate.setHours(0, 0, 0, 0);
+                        const shiftDateStr = shiftDate.toISOString().split('T')[0];
+
                         return shift.resourceId === resourceId &&
-                            shiftDate.getTime() === new Date(date).setHours(0, 0, 0, 0) &&
+                            shiftDateStr === checkDateStr &&
                             shift.id !== currentEventId; // Don't block current shift in edit mode
                     });
 
@@ -1542,22 +1540,30 @@ window.HunkProScheduler = {
                     }
 
                     // Check if date is overridden (from previous availability override)
-                    if (this.isDateOverridden(resourceId, date)) {
+                    if (this.isDateOverridden(resourceId, checkDate)) {
                         return false;
                     }
 
-                    // Check for availability conflicts
+                    // Check for availability conflicts using normalized dates
                     const availabilityConflict = this.availability.some(avail => {
                         if (avail.resourceId !== resourceId) return false;
 
-                        const startDate = new Date(avail.start);
-                        const endDate = new Date(avail.end);
-                        endDate.setDate(endDate.getDate() - 1);
+                        try {
+                            const startDate = new Date(avail.start);
+                            const startDateStr = startDate.toISOString().split('T')[0];
 
-                        startDate.setHours(0, 0, 0, 0);
-                        endDate.setHours(23, 59, 59, 999);
+                            // Create end date and subtract one day to account for the UI adjustment
+                            const endDate = new Date(avail.end);
+                            endDate.setDate(endDate.getDate() - 1);
+                            const endDateStr = endDate.toISOString().split('T')[0];
 
-                        return checkDate >= startDate && checkDate <= endDate;
+                            // Simple string comparison of dates
+                            return checkDateStr >= startDateStr &&
+                                checkDateStr <= endDateStr;
+                        } catch (error) {
+                            console.error('Error checking availability in date picker:', error, avail);
+                            return false;
+                        }
                     });
 
                     return availabilityConflict;
@@ -1575,13 +1581,15 @@ window.HunkProScheduler = {
             },
 
             onChange: (selectedDates, dateStr) => {
-                // Additional onChange logic if needed
+                // Log selected date for debugging
+                console.log('Selected date:', dateStr);
+                console.log('Normalized date:', new Date(dateStr).toISOString().split('T')[0]);
             },
 
             onClose: () => {
                 const resourceId = modal.dataset.resourceId;
                 if (resourceId) {
-                    // Cleanup logic if needed
+                    // Additional cleanup logic if needed
                 }
             }
         });
