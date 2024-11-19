@@ -1046,12 +1046,12 @@
                     const viewStart = this.calendar.view.activeStart;
                     const viewEnd = this.calendar.view.activeEnd;
 
-                    console.log(`fetchSchedules ${viewStart} ${viewEnd}`);
+                    // console.log(`fetchSchedules ${viewStart} ${viewEnd}`);
 
                     const startDate = viewStart.toISOString().split('T')[0];
                     const endDate = viewEnd.toISOString().split('T')[0];
 
-                    // console.log(`fetchSchedules ${startDate} ${endDate}`);
+                    console.log(`fetchSchedules ${startDate} ${endDate}`);
 
                     // Define the mapping between position types and CSS classes
                     const positionClassMap = {
@@ -1135,7 +1135,7 @@
                     const viewStart = this.calendar.view.activeStart;
                     const viewEnd = this.calendar.view.activeEnd;
 
-                    console.log(`fetchAvailability ${viewStart} ${viewEnd}`);
+                    // console.log(`fetchAvailability ${viewStart} ${viewEnd}`);
 
                     // Add buffer days
                     const bufferStart = new Date(viewStart);
@@ -1147,7 +1147,7 @@
                     const startDate = bufferStart.toISOString().split('T')[0];
                     const endDate = bufferEnd.toISOString().split('T')[0];
 
-                    // console.log(`fetchAvailability ${startDate} ${endDate}`);
+                    console.log(`fetchAvailability ${startDate} ${endDate}`);
 
                     const classMap = this.availabilityClassMap;
 
@@ -1207,7 +1207,7 @@
                     const viewStart = this.calendar.view.activeStart;
                     const viewEnd = this.calendar.view.activeEnd;
 
-                    console.log(`fetchRegularDayOffs ${viewStart} ${viewEnd}`);
+                    // console.log(`fetchRegularDayOffs ${viewStart} ${viewEnd}`);
 
                     // Add buffer days just like in fetchAvailability
                     const bufferStart = new Date(viewStart);
@@ -1219,7 +1219,7 @@
                     const startDate = bufferStart.toISOString().split('T')[0];
                     const endDate = bufferEnd.toISOString().split('T')[0];
 
-                    // console.log(`fetchRegularDayOffs ${startDate} ${endDate}`);
+                    console.log(`fetchRegularDayOffs ${startDate} ${endDate}`);
 
                     // Helper function to make API call
                     const makeApiCall = async () => {
@@ -1527,9 +1527,14 @@
 
                     this.isRefreshing = true;
                     this.lastRefreshTime = Date.now();
-                    this.updateRefreshButtonState(true); // Show loader when refresh starts
+                    this.updateRefreshButtonState(true);
 
                     try {
+                        // Wait for cooldown period before executing fetches
+                        if (!isInitialLoad) {
+                            await new Promise(resolve => setTimeout(resolve, this.REFRESH_COOLDOWN));
+                        }
+
                         console.log(`Refreshing events... (${isInitialLoad ? 'initial load' : 'update'})`);
 
                         // Use the most recently requested dates instead of current view dates
@@ -1584,7 +1589,7 @@
                         throw error;
                     } finally {
                         this.isRefreshing = false;
-                        this.updateRefreshButtonState(false); // Hide loader when refresh ends
+                        this.updateRefreshButtonState(false);
                     }
                 },
 
@@ -1652,11 +1657,11 @@
                             try {
                                 // Only refresh if it's a navigation change
                                 if (this._lastViewStart?.getTime() !== dateInfo.start.getTime()) {
-                                    console.log('Date range changed:', {
-                                        start: dateInfo.start,
-                                        end: dateInfo.end,
-                                        lastStart: this._lastViewStart
-                                    });
+                                    // console.log('Date range changed:', {
+                                    //     start: dateInfo.start,
+                                    //     end: dateInfo.end,
+                                    //     lastStart: this._lastViewStart
+                                    // });
 
                                     this._lastViewStart = dateInfo.start;
                                     console.log('refresh events from dataSet()');
