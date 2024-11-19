@@ -879,15 +879,14 @@
 
                 overrideDates: new Map(),
 
-                // isRefreshing: false,
+                isRefreshing: false,
                 refreshQueue: Promise.resolve(),
                 lastRefreshTime: 0,
                 REFRESH_COOLDOWN: 800, // minimum ms between refreshes
 
-                _refreshTimeout: null,
-                _refreshDelay: 800, // Configurable delay
-                _pendingRefreshParams: null, // Store the latest refresh parameters
-                isRefreshing: false,
+                // Add these two new variables here
+                _lastRequestedStart: null,
+                _lastRequestedEnd: null,
 
                 availabilityClassMap: {
                     'Regular Day Off': 'hunkpro-unavailable-regular',
@@ -940,10 +939,24 @@
                         const employees = await this.fetchEmployees();
                         this.initializeCalendar(employees);
 
-                        // Fetch all required data
-                        await this.refreshEvents();
+                        // Makes sure that the refresh event finishes
+                        const refreshPromise = new Promise((resolve, reject) => {
+                            const checkRefresh = () => {
+                                if (!this.isRefreshing) {
+                                    resolve();
+                                } else {
+                                    setTimeout(checkRefresh, 100);
+                                }
+                            };
 
-                        // Hide loader after everything is loaded
+                            this.refreshEvents()
+                                .then(() => {
+                                    checkRefresh();
+                                })
+                                .catch(reject);
+                        });
+                        await refreshPromise;
+
                         this.hideFullScreenLoader();
                     } catch (error) {
                         console.error('Initialization error:', error);
@@ -996,8 +1009,12 @@
                     const viewStart = this.calendar.view.activeStart;
                     const viewEnd = this.calendar.view.activeEnd;
 
+                    console.log(`fetchSchedules ${viewStart} ${viewEnd}`);
+
                     const startDate = viewStart.toISOString().split('T')[0];
                     const endDate = viewEnd.toISOString().split('T')[0];
+
+                    // console.log(`fetchSchedules ${startDate} ${endDate}`);
 
                     // Define the mapping between position types and CSS classes
                     const positionClassMap = {
@@ -1081,6 +1098,8 @@
                     const viewStart = this.calendar.view.activeStart;
                     const viewEnd = this.calendar.view.activeEnd;
 
+                    console.log(`fetchAvailability ${viewStart} ${viewEnd}`);
+
                     // Add buffer days
                     const bufferStart = new Date(viewStart);
                     bufferStart.setDate(bufferStart.getDate() - 7);
@@ -1090,6 +1109,8 @@
 
                     const startDate = bufferStart.toISOString().split('T')[0];
                     const endDate = bufferEnd.toISOString().split('T')[0];
+
+                    // console.log(`fetchAvailability ${startDate} ${endDate}`);
 
                     const classMap = this.availabilityClassMap;
 
@@ -1149,6 +1170,8 @@
                     const viewStart = this.calendar.view.activeStart;
                     const viewEnd = this.calendar.view.activeEnd;
 
+                    console.log(`fetchRegularDayOffs ${viewStart} ${viewEnd}`);
+
                     // Add buffer days just like in fetchAvailability
                     const bufferStart = new Date(viewStart);
                     bufferStart.setDate(bufferStart.getDate() - 7);
@@ -1158,6 +1181,8 @@
 
                     const startDate = bufferStart.toISOString().split('T')[0];
                     const endDate = bufferEnd.toISOString().split('T')[0];
+
+                    // console.log(`fetchRegularDayOffs ${startDate} ${endDate}`);
 
                     // Helper function to make API call
                     const makeApiCall = async () => {
@@ -2459,32 +2484,6 @@
                 // Clear all overrides
                 clearAllOverrides: function () {
                     this.overrideDates.clear();
-                },
-
-                debouncedRefresh: async function () {
-                    if (this._refreshTimeout) {
-                        clearTimeout(this._refreshTimeout);
-                    }
-
-                    return new Promise((resolve) => {
-                        this._refreshTimeout = setTimeout(async () => {
-                            if (this.isRefreshing) {
-                                console.log('Refresh already in progress, skipping...');
-                                resolve();
-                                return;
-                            }
-
-                            try {
-                                this.isRefreshing = true;
-                                await this.refreshEvents();
-                            } catch (error) {
-                                console.error('Error in debouncedRefresh:', error);
-                            } finally {
-                                this.isRefreshing = false;
-                                resolve();
-                            }
-                        }, this._refreshDelay);
-                    });
                 },
 
             };
