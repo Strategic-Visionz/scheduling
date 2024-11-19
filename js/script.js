@@ -228,9 +228,6 @@ window.HunkProScheduler = {
         const viewStart = this.calendar.view.activeStart;
         const viewEnd = this.calendar.view.activeEnd;
 
-        // console.log(`fetchAvailability ${viewStart} ${viewEnd}`);
-
-        // Add buffer days
         const bufferStart = new Date(viewStart);
         bufferStart.setDate(bufferStart.getDate() - 7);
 
@@ -262,12 +259,9 @@ window.HunkProScheduler = {
                     const availability = parsedData.items.map(item => {
                         try {
                             const start = item.field_428.start.split(' ')[0];
-                            // Add one day to the end date to make it inclusive
-                            const endDate = new Date(item.field_428.end.split(' ')[0]);
-                            endDate.setDate(endDate.getDate() + 1);
-                            const end = endDate.toISOString().split('T')[0];
+                            // Use the end date directly without adding a day
+                            const end = item.field_428.end.split(' ')[0];
 
-                            // Get the availability type and find corresponding CSS class
                             const availabilityType = item.field_67 || 'Regular Day Off';
                             const cssClass = classMap[availabilityType] || 'hunkpro-unavailable-regular';
 
@@ -300,9 +294,6 @@ window.HunkProScheduler = {
         const viewStart = this.calendar.view.activeStart;
         const viewEnd = this.calendar.view.activeEnd;
 
-        // console.log(`fetchRegularDayOffs ${viewStart} ${viewEnd}`);
-
-        // Add buffer days just like in fetchAvailability
         const bufferStart = new Date(viewStart);
         bufferStart.setDate(bufferStart.getDate() - 7);
 
@@ -314,7 +305,6 @@ window.HunkProScheduler = {
 
         console.log(`fetchRegularDayOffs ${startDate} ${endDate}`);
 
-        // Helper function to make API call
         const makeApiCall = async () => {
             return new Promise((resolve, reject) => {
                 $.ajax({
@@ -339,6 +329,7 @@ window.HunkProScheduler = {
             });
         };
 
+        // Rest of the function remains the same, just ensuring the event creation uses consistent date handling
         return new Promise((resolve, reject) => {
             makeApiCall()
                 .then((data) => {
@@ -356,46 +347,34 @@ window.HunkProScheduler = {
                                 'Saturday': 6
                             };
 
-                            // Get the selected days of the week
                             const selectedDays = item.field_475.filter(day => day !== "").map(day => dayMapping[day]);
-
-                            // Create events for each selected day within the view range
                             let currentDate = new Date(viewStart);
 
                             while (currentDate < viewEnd) {
                                 if (selectedDays.includes(currentDate.getDay())) {
-                                    // Set the time to noon to avoid timezone issues
                                     const eventDate = new Date(currentDate);
                                     eventDate.setHours(12, 0, 0, 0);
                                     const formattedEventDate = eventDate.toISOString().split('T')[0];
-
-                                    // Create next day date properly
                                     const nextDay = new Date(eventDate);
-                                    nextDay.setDate(nextDay.getDate() + 1);
+                                    nextDay.setDate(nextDay.getDate());
                                     const formattedNextDay = nextDay.toISOString().split('T')[0];
 
+                                    // Use consistent date handling for availability check
                                     const hasExistingAvailability = this.availability.some(avail => {
-                                        // Normalize start date to beginning of day
                                         const availStartDate = new Date(avail.start);
                                         availStartDate.setHours(0, 0, 0, 0);
 
-                                        // Normalize end date to end of day
-                                        // Also subtract one day since end dates are exclusive
                                         const availEndDate = new Date(avail.end);
-                                        availEndDate.setDate(availEndDate.getDate() - 1);
                                         availEndDate.setHours(23, 59, 59, 999);
 
-                                        // Normalize check date to noon
                                         const checkDate = new Date(eventDate);
                                         checkDate.setHours(12, 0, 0, 0);
 
-                                        // Compare dates with normalized timestamps
                                         return avail.resourceId === item.field_64[0] &&
                                             checkDate >= availStartDate &&
                                             checkDate <= availEndDate;
                                     });
 
-                                    // Only add regular day off if there's no existing availability
                                     if (!hasExistingAvailability) {
                                         availability.push({
                                             id: `${item.id}-${formattedEventDate}`,
@@ -846,18 +825,17 @@ window.HunkProScheduler = {
             const formattedStart = currentView.activeStart.toISOString().split('T')[0];
             const formattedEnd = currentView.activeEnd.toISOString().split('T')[0];
 
-            // Create Date objects using UTC to avoid timezone issues
-            const weekStart = new Date(Date.UTC(
+            const weekStart = new Date(
                 currentView.activeStart.getFullYear(),
                 currentView.activeStart.getMonth(),
                 currentView.activeStart.getDate()
-            ));
+            );
 
-            const weekEnd = new Date(Date.UTC(
+            const weekEnd = new Date(
                 currentView.activeEnd.getFullYear(),
                 currentView.activeEnd.getMonth(),
                 currentView.activeEnd.getDate() - 1  // Subtract 1 from end date only if needed for display
-            ));
+            );
 
             // Calculate next week's dates
             const nextWeekStart = new Date(weekStart);
@@ -866,13 +844,11 @@ window.HunkProScheduler = {
             const nextWeekEnd = new Date(weekEnd);
             nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
 
-            // Format dates for display using UTC to ensure consistency
             const formatDate = (date) => {
                 return date.toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric',
                     year: 'numeric',
-                    timeZone: 'UTC'
                 });
             };
 
@@ -1123,7 +1099,6 @@ window.HunkProScheduler = {
                 shiftDate.getTime() === checkDate.getTime();
         });
 
-        // If there's already a shift, return a special conflict message
         if (existingShift) {
             return {
                 title: "Already Scheduled",
@@ -1133,16 +1108,13 @@ window.HunkProScheduler = {
             };
         }
 
-        // Then check for availability conflicts
+        // Check for availability conflicts without end date adjustment
         const availabilityConflict = this.availability.find(a => {
             try {
-                // Create dates for comparison
                 const startDate = new Date(a.start);
                 startDate.setHours(0, 0, 0, 0);
 
-                // Create end date and subtract one day to account for the UI adjustment
                 const endDate = new Date(a.end);
-                endDate.setDate(endDate.getDate() - 1); // Subtract one day
                 endDate.setHours(23, 59, 59, 999);
 
                 const checkDate = new Date(date);
@@ -1153,22 +1125,18 @@ window.HunkProScheduler = {
                     checkDate <= endDate;
             } catch (error) {
                 console.error('Error checking availability:', error);
-                return false; // Fail safe in case of date parsing errors
+                return false;
             }
         });
 
-        // If there's no availability conflict, employee is available
         if (!availabilityConflict) {
             return null;
         }
 
-        // Return conflict with special handling for suspensions
         return {
             ...availabilityConflict,
             start: new Date(availabilityConflict.start).toLocaleDateString(),
-            end: new Date(new Date(availabilityConflict.end).setDate(
-                new Date(availabilityConflict.end).getDate() - 1
-            )).toLocaleDateString(),
+            end: new Date(availabilityConflict.end).toLocaleDateString(),
             type: availabilityConflict.title === 'Suspension' ? 'suspension_conflict' : 'availability_conflict'
         };
     },
@@ -1432,7 +1400,6 @@ window.HunkProScheduler = {
 
 
     getDailyShiftCount: function (date) {
-        // Normalize both dates to midnight UTC for consistent comparison
         const normalizedTargetDate = new Date(date);
         normalizedTargetDate.setHours(0, 0, 0, 0);
 
