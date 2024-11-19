@@ -1137,15 +1137,15 @@ window.HunkProScheduler = {
             try {
                 // Create dates for comparison
                 const startDate = new Date(a.start);
-                startDate.setHours(0, 0, 0, 0);
+                // startDate.setHours(0, 0, 0, 0);
 
                 // Create end date and subtract one day to account for the UI adjustment
                 const endDate = new Date(a.end);
                 endDate.setDate(endDate.getDate() - 1); // Subtract one day
-                endDate.setHours(23, 59, 59, 999);
+                // endDate.setHours(23, 59, 59, 999);
 
                 const checkDate = new Date(date);
-                checkDate.setHours(12, 0, 0, 0);
+                // checkDate.setHours(12, 0, 0, 0);
 
                 return a.resourceId === resourceId &&
                     checkDate >= startDate &&
