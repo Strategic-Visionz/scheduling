@@ -139,11 +139,10 @@ window.HunkProScheduler = {
         const viewStart = this.calendar.view.activeStart;
         const viewEnd = this.calendar.view.activeEnd;
 
-        // const startDate = viewStart.toISOString().split('T')[0];
-        // const endDate = viewEnd.toISOString().split('T')[0];
+        // console.log(`fetchSchedules ${viewStart} ${viewEnd}`);
 
-        const startDate = this.getFormattedDate(viewStart);
-        const endDate = this.getFormattedDate(viewEnd);
+        const startDate = viewStart.toISOString().split('T')[0];
+        const endDate = viewEnd.toISOString().split('T')[0];
 
         console.log(`fetchSchedules ${startDate} ${endDate}`);
 
@@ -229,6 +228,8 @@ window.HunkProScheduler = {
         const viewStart = this.calendar.view.activeStart;
         const viewEnd = this.calendar.view.activeEnd;
 
+        // console.log(`fetchAvailability ${viewStart} ${viewEnd}`);
+
         // Add buffer days
         const bufferStart = new Date(viewStart);
         bufferStart.setDate(bufferStart.getDate() - 7);
@@ -236,11 +237,8 @@ window.HunkProScheduler = {
         const bufferEnd = new Date(viewEnd);
         bufferEnd.setDate(bufferEnd.getDate() + 7);
 
-        // const startDate = bufferStart.toISOString().split('T')[0];
-        // const endDate = bufferEnd.toISOString().split('T')[0];
-
-        const startDate = this.getFormattedDate(bufferStart);
-        const endDate = this.getFormattedDate(bufferEnd);
+        const startDate = bufferStart.toISOString().split('T')[0];
+        const endDate = bufferEnd.toISOString().split('T')[0];
 
         console.log(`fetchAvailability ${startDate} ${endDate}`);
 
@@ -267,8 +265,7 @@ window.HunkProScheduler = {
                             // Add one day to the end date to make it inclusive
                             const endDate = new Date(item.field_428.end.split(' ')[0]);
                             endDate.setDate(endDate.getDate() + 1);
-                            // const end = endDate.toISOString().split('T')[0];
-                            const end = this.getFormattedDate(endDate);
+                            const end = endDate.toISOString().split('T')[0];
 
                             // Get the availability type and find corresponding CSS class
                             const availabilityType = item.field_67 || 'Regular Day Off';
@@ -312,11 +309,8 @@ window.HunkProScheduler = {
         const bufferEnd = new Date(viewEnd);
         bufferEnd.setDate(bufferEnd.getDate() + 7);
 
-        // const startDate = bufferStart.toISOString().split('T')[0];
-        // const endDate = bufferEnd.toISOString().split('T')[0];
-
-        const startDate = this.getFormattedDate(bufferStart);
-        const endDate = this.getFormattedDate(bufferEnd);
+        const startDate = bufferStart.toISOString().split('T')[0];
+        const endDate = bufferEnd.toISOString().split('T')[0];
 
         console.log(`fetchRegularDayOffs ${startDate} ${endDate}`);
 
@@ -373,14 +367,12 @@ window.HunkProScheduler = {
                                     // Set the time to noon to avoid timezone issues
                                     const eventDate = new Date(currentDate);
                                     // eventDate.setHours(12, 0, 0, 0);
-                                    // const formattedEventDate = eventDate.toISOString().split('T')[0];
-                                    const formattedEventDate = this.getFormattedDate(eventDate);
+                                    const formattedEventDate = eventDate.toISOString().split('T')[0];
 
                                     // Create next day date properly
                                     const nextDay = new Date(eventDate);
                                     nextDay.setDate(nextDay.getDate() + 1);
-                                    // const formattedNextDay = nextDay.toISOString().split('T')[0];
-                                    const formattedNextDay = this.getFormattedDate(nextDay);
+                                    const formattedNextDay = nextDay.toISOString().split('T')[0];
 
                                     const hasExistingAvailability = this.availability.some(avail => {
                                         // Normalize start date to beginning of day
@@ -567,16 +559,14 @@ window.HunkProScheduler = {
 
         // Initialize counts for each day including the last day
         for (let date = new Date(viewStart); date <= adjustedViewEnd; date.setDate(date.getDate() + 1)) {
-            // const dateStr = date.toISOString().split('T')[0];
-            const dateStr = this.getFormattedDate(date);
+            const dateStr = date.toISOString().split('T')[0];
             dailyCounts[dateStr] = 0;
         }
 
         // Count shifts for each day
         this.shifts.forEach(shift => {
             const shiftDate = new Date(shift.start);
-            // const dateStr = shiftDate.toISOString().split('T')[0];
-            const dateStr = this.getFormattedDate(shiftDate);
+            const dateStr = shiftDate.toISOString().split('T')[0];
             if (dailyCounts.hasOwnProperty(dateStr)) {
                 dailyCounts[dateStr]++;
             }
@@ -589,20 +579,14 @@ window.HunkProScheduler = {
         const events = [];
         const start = new Date(startDate);
         const end = new Date(endDate);
-        console.group('createAvailabilityEvents',createAvailabilityEvents);
-        console.log('this.getFormattedDate(date)',this.getFormattedDate(date));
-        console.log('this.getFormattedDate(new Date(date.setDate(date.getDate() + 1)))',this.getFormattedDate(new Date(date.setDate(date.getDate() + 1))));
-        console.groupEnd();
+
         // Create an event for each day in the range
         for (let date = start; date < end; date.setDate(date.getDate() + 1)) {
             events.push({
-                // id: `${id}-${date.toISOString().split('T')[0]}`,
-                id: `${id}-${this.getFormattedDate(date)}`,
+                id: `${id}-${date.toISOString().split('T')[0]}`,
                 resourceId: resourceId,
-                // start: date.toISOString().split('T')[0],
-                start: this.getFormattedDate(date),
-                // end: new Date(date.setDate(date.getDate() + 1)).toISOString().split('T')[0],
-                end: this.getFormattedDate(new Date(date.setDate(date.getDate() + 1))),
+                start: date.toISOString().split('T')[0],
+                end: new Date(date.setDate(date.getDate() + 1)).toISOString().split('T')[0],
                 title: title,
                 display: 'background',
                 classNames: [className],
@@ -859,11 +843,8 @@ window.HunkProScheduler = {
 
         try {
             // Get the formatted dates directly from the view
-            // const formattedStart = currentView.activeStart.toISOString().split('T')[0];
-            // const formattedEnd = currentView.activeEnd.toISOString().split('T')[0];
-
-            const formattedStart = this.getFormattedDate(currentView.activeStart);
-            const formattedEnd = this.getFormattedDate(currentView.activeEnd);
+            const formattedStart = currentView.activeStart.toISOString().split('T')[0];
+            const formattedEnd = currentView.activeEnd.toISOString().split('T')[0];
 
             const weekStart = new Date(
                 currentView.activeStart.getFullYear(),
@@ -941,15 +922,8 @@ window.HunkProScheduler = {
         }
 
         // Format dates for API call
-        // const formattedStart = weekStart.toISOString().split('T')[0];
-        // const formattedEnd = weekEnd.toISOString().split('T')[0];
-
-        const formattedStart = this.getFormattedDate(weekStart);
-        const formattedEnd = this.getFormattedDate(weekEnd);
-        console.group('copyWeekSchedules')
-        console.log('formattedStart',formattedStart);
-        console.log('formattedEnd',formattedEnd);
-        console.groupEnd();
+        const formattedStart = weekStart.toISOString().split('T')[0];
+        const formattedEnd = weekEnd.toISOString().split('T')[0];
 
         // Validate date format
         if (!/^\d{4}-\d{2}-\d{2}$/.test(formattedStart) || !/^\d{4}-\d{2}-\d{2}$/.test(formattedEnd)) {
@@ -1133,81 +1107,57 @@ window.HunkProScheduler = {
         }
     },
 
-    getFormattedDate: function (date) {
-        const d = new Date(date);
-        return [
-            d.getFullYear(),
-            String(d.getMonth() + 1).padStart(2, '0'),
-            String(d.getDate()).padStart(2, '0')
-        ].join('-');
-    },
-
     checkAvailability: function (resourceId, date) {
-        // Ensure we're working with a Date object
-        const inputDate = new Date(date);
+        const checkDate = new Date(date);
+        const checkDateStr = checkDate.toISOString().split('T')[0];
+        console.log('checkDateStr', checkDateStr)
 
-        // Create a date string using local components to preserve the calendar date
-        // const checkDateStr = [
-        //     inputDate.getFullYear(),
-        //     String(inputDate.getMonth() + 1).padStart(2, '0'),
-        //     String(inputDate.getDate()).padStart(2, '0')
-        // ].join('-');
-
-        const checkDateStr = this.getFormattedDate(inputDate);
-
-        console.log('Checking availability for:', checkDateStr);
-
-        // First check if there's already a shift scheduled
+        // First check if there's already a shift scheduled (preventing multiple shifts)
         const existingShift = this.shifts.find(shift => {
             const shiftDate = new Date(shift.start);
-            const shiftDateStr = [
-                shiftDate.getFullYear(),
-                String(shiftDate.getMonth() + 1).padStart(2, '0'),
-                String(shiftDate.getDate()).padStart(2, '0')
-            ].join('-');
+            const shiftDateStr = shiftDate.toISOString().split('T')[0];
 
+            if (shift.resourceId === resourceId) console.log('shiftDateStr', shiftDateStr);
             return shift.resourceId === resourceId && shiftDateStr === checkDateStr;
         });
 
+        // If there's already a shift, return a special conflict message
         if (existingShift) {
             return {
                 title: "Already Scheduled",
-                start: existingShift.start,
-                end: existingShift.start,
+                start: new Date(existingShift.start).toLocaleDateString(),
+                end: new Date(existingShift.start).toLocaleDateString(),
                 type: 'shift_conflict'
             };
         }
 
-        // Check availability conflicts
+        // Then check for availability conflicts
         const availabilityConflict = this.availability.find(a => {
             try {
                 const startDate = new Date(a.start);
+                const startDateStr = startDate.toISOString().split('T')[0];
+
+                // Create end date and subtract one day to account for the UI adjustment
                 const endDate = new Date(a.end);
                 endDate.setDate(endDate.getDate() - 1);
+                const endDateStr = endDate.toISOString().split('T')[0];
 
-                const startDateStr = [
-                    startDate.getFullYear(),
-                    String(startDate.getMonth() + 1).padStart(2, '0'),
-                    String(startDate.getDate()).padStart(2, '0')
-                ].join('-');
-
-                const endDateStr = [
-                    endDate.getFullYear(),
-                    String(endDate.getMonth() + 1).padStart(2, '0'),
-                    String(endDate.getDate()).padStart(2, '0')
-                ].join('-');
-
+                // Simple string comparison of dates
                 return a.resourceId === resourceId &&
                     checkDateStr >= startDateStr &&
                     checkDateStr <= endDateStr;
             } catch (error) {
                 console.error('Error checking availability:', error);
-                return false;
+                return false; // Fail safe in case of date parsing errors
             }
         });
 
-        if (!availabilityConflict) return null;
+        // If there's no availability conflict, employee is available
+        if (!availabilityConflict) {
+            return null;
+        }
 
+        // Return conflict with special handling for suspensions
         return {
             ...availabilityConflict,
             start: new Date(availabilityConflict.start).toLocaleDateString(),
@@ -1358,6 +1308,7 @@ window.HunkProScheduler = {
         bsModal.show();
     },
 
+    // Update handleFormSubmit to use Bootstrap modal
     handleFormSubmit: async function () {
         const modal = document.getElementById('hunkpro-shift-modal');
         const position = document.getElementById('hunkpro-shift-position').value;
@@ -1374,8 +1325,9 @@ window.HunkProScheduler = {
             this.toggleLoader(true, isAddMode ? 'Adding Shift...' : 'Updating Shift...');
 
             if (isAddMode) {
-                const selectedDate = this.getFormattedDate(
-                    this.datePicker.selectedDates[0]
+                const selectedDate = this.datePicker.formatDate(
+                    this.datePicker.selectedDates[0],
+                    "Y-m-d"
                 );
                 const newShift = {
                     user: modal.dataset.resourceId,
@@ -1386,8 +1338,9 @@ window.HunkProScheduler = {
                 await this.addShift(newShift);
             } else {
                 const event = this.calendar.getEventById(modal.dataset.eventId);
-                const selectedDate = this.getFormattedDate(
-                    this.datePicker.selectedDates[0]
+                const selectedDate = this.datePicker.formatDate(
+                    this.datePicker.selectedDates[0],
+                    "Y-m-d"
                 );
 
                 await this.updateShift({
@@ -1401,7 +1354,9 @@ window.HunkProScheduler = {
             const bsModal = bootstrap.Modal.getInstance(modal);
             bsModal.hide();
 
+            // Refresh events after modal is closed
             await this.refreshEvents();
+
         } catch (error) {
             console.error('Error handling form submit:', error);
             this.toggleLoader(false);
@@ -1448,11 +1403,11 @@ window.HunkProScheduler = {
             this.shifts[shiftIndex] = {
                 ...this.shifts[shiftIndex],
                 resourceId: event.getResources()[0].id,
-                start: this.getFormattedDate(event.start)
+                start: event.startStr
             };
             this.updateShift({
                 id: event?.id || '',
-                date: this.getFormattedDate(event.start),
+                date: event?.startStr || '',
                 position: event?.extendedProps?.positionId?.[0] || ''
             });
         }
@@ -1537,75 +1492,98 @@ window.HunkProScheduler = {
             this.datePicker.destroy();
         }
 
-        const self = this;
-
         this.datePicker = flatpickr(dateInput, {
             dateFormat: "Y-m-d",
             defaultDate: "today",
             locale: {
                 firstDayOfWeek: 1
             },
+            // Enable date selection only within the current view's date range
             minDate: viewStart,
-            maxDate: new Date(viewEnd.getTime() - 24 * 60 * 60 * 1000),
-            disable: [
-                function (date) {
-                    const resourceId = modal.dataset.resourceId;
-                    if (!resourceId) return false;
+            maxDate: new Date(viewEnd.getTime() - 24 * 60 * 60 * 1000), // Subtract one day from end date
 
-                    const checkDateStr = self.getFormattedDate(date);
-                    const viewStartStr = self.getFormattedDate(viewStart);
-                    const viewEndStr = self.getFormattedDate(viewEnd);
+            // Disable dates outside the current week and handle availability conflicts
+            disable: [
+                (date) => {
+                    const resourceId = modal.dataset.resourceId;
+
+                    if (!resourceId) {
+                        console.log('No resource ID available');
+                        return false;
+                    }
+
+                    const checkDate = new Date(date);
+                    const checkDateStr = checkDate.toISOString().split('T')[0];
 
                     // Check if date is within current view range
+                    // Normalize view dates for comparison
+                    const viewStartStr = new Date(viewStart).toISOString().split('T')[0];
+                    const viewEndStr = new Date(viewEnd).toISOString().split('T')[0];
+
                     if (checkDateStr < viewStartStr || checkDateStr >= viewEndStr) {
                         return true;
                     }
 
-                    // Check for shifts on this date
-                    const existingShift = self.shifts.find(shift => {
-                        const shiftDateStr = self.getFormattedDate(shift.start);
+                    // Check for shifts on this date using normalized date comparison
+                    const existingShift = this.shifts.find(shift => {
+                        const shiftDate = new Date(shift.start);
+                        const shiftDateStr = shiftDate.toISOString().split('T')[0];
+
                         return shift.resourceId === resourceId &&
                             shiftDateStr === checkDateStr &&
-                            shift.id !== currentEventId;
+                            shift.id !== currentEventId; // Don't block current shift in edit mode
                     });
 
-                    if (existingShift) return true;
+                    // If there's a shift and we're not editing that specific shift, disable the date
+                    if (existingShift) {
+                        return true;
+                    }
 
-                    // Check if date is overridden
-                    if (self.isDateOverridden(resourceId, date)) return false;
+                    // Check if date is overridden (from previous availability override)
+                    if (this.isDateOverridden(resourceId, checkDate)) {
+                        return false;
+                    }
 
-                    // Check for availability conflicts
-                    return self.availability.some(avail => {
+                    // Check for availability conflicts using normalized dates
+                    const availabilityConflict = this.availability.some(avail => {
                         if (avail.resourceId !== resourceId) return false;
 
                         try {
                             const startDate = new Date(avail.start);
+                            const startDateStr = startDate.toISOString().split('T')[0];
+
+                            // Create end date and subtract one day to account for the UI adjustment
                             const endDate = new Date(avail.end);
                             endDate.setDate(endDate.getDate() - 1);
+                            const endDateStr = endDate.toISOString().split('T')[0];
 
-                            const startDateStr = self.getFormattedDate(startDate);
-                            const endDateStr = self.getFormattedDate(endDate);
-
+                            // Simple string comparison of dates
                             return checkDateStr >= startDateStr &&
                                 checkDateStr <= endDateStr;
                         } catch (error) {
-                            console.error('Error in date picker availability check:', error);
+                            console.error('Error checking availability in date picker:', error, avail);
                             return false;
                         }
                     });
+
+                    return availabilityConflict;
                 }
             ],
 
+            // Show the calendar immediately when the input is focused
             allowInput: false,
             clickOpens: true,
 
+            // Update the calendar when it opens to ensure correct date range
             onOpen: function (selectedDates, dateStr, instance) {
+                // Force update of the calendar to ensure correct date range
                 instance.jumpToDate(instance.selectedDates[0] || viewStart);
             },
 
             onChange: (selectedDates, dateStr) => {
+                // Log selected date for debugging
                 console.log('Selected date:', dateStr);
-                console.log('Formatted date:', this.getFormattedDate(dateStr));
+                console.log('Normalized date:', new Date(dateStr).toISOString().split('T')[0]);
             },
 
             onClose: () => {
@@ -1620,7 +1598,7 @@ window.HunkProScheduler = {
     },
     // Add override for specific employee and date
     addOverrideDate: function (employeeId, date) {
-        const dateStr = this.getFormattedDate(date);
+        const dateStr = new Date(date).toISOString().split('T')[0];
         if (!this.overrideDates.has(employeeId)) {
             this.overrideDates.set(employeeId, new Set());
         }
@@ -1628,11 +1606,11 @@ window.HunkProScheduler = {
     },
 
     // Remove override for specific employee and date
-
     removeOverrideDate: function (employeeId, date) {
-        const dateStr = this.getFormattedDate(date);
+        const dateStr = new Date(date).toISOString().split('T')[0];
         if (this.overrideDates.has(employeeId)) {
             this.overrideDates.get(employeeId).delete(dateStr);
+            // Clean up empty sets
             if (this.overrideDates.get(employeeId).size === 0) {
                 this.overrideDates.delete(employeeId);
             }
@@ -1640,11 +1618,11 @@ window.HunkProScheduler = {
     },
     // Check if date is overridden for employee
     isDateOverridden: function (employeeId, date) {
-        const dateStr = this.getFormattedDate(date);
+        // console.log('overrideDates',this.overrideDates);
+        const dateStr = new Date(date).toISOString().split('T')[0];
         return this.overrideDates.has(employeeId) &&
             this.overrideDates.get(employeeId).has(dateStr);
     },
-
 
     // Clear all overrides for an employee
     clearEmployeeOverrides: function (employeeId) {
