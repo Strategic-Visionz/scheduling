@@ -805,7 +805,7 @@ window.HunkProScheduler = {
                         switch (status) {
                             case 'Not Published':
                                 return {
-                                    icon: 'error_outline',
+                                    icon: 'publish',
                                     class: 'hunkpro-status-not-published',
                                     title: 'Not Published'
                                 };
