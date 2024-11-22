@@ -206,7 +206,11 @@ window.HunkProScheduler = {
                                 positionId: item.field_59,
                                 start: item.field_60,
                                 classNames: [cssClass],
-                                allDay: true
+                                allDay: true,
+                                extendedProps: {
+                                    hasNotes: item.field_479 !== null && item.field_479 !== '',
+                                    publishStatus: item.field_478 || 'unknown'
+                                }
                             };
                         } catch (err) {
                             console.error('Error processing schedule item:', err, item);
@@ -794,13 +798,64 @@ window.HunkProScheduler = {
 
             eventContent: (arg) => {
                 if (arg.event.display !== 'background') {
+                    const hasNotes = arg.event.extendedProps.hasNotes || false;
+                    const publishStatus = arg.event.extendedProps.publishStatus || 'unknown';
+
+                    const getStatusIconInfo = (status) => {
+                        switch (status) {
+                            case 'Not Published':
+                                return {
+                                    icon: 'error_outline',
+                                    class: 'hunkpro-status-not-published',
+                                    title: 'Not Published'
+                                };
+                            case 'Re-Publish':
+                                return {
+                                    icon: 'sync',
+                                    class: 'hunkpro-status-republish',
+                                    title: 'Needs Republishing'
+                                };
+                            case 'Published':
+                                return {
+                                    icon: 'check_circle_outline',
+                                    class: 'hunkpro-status-published',
+                                    title: 'Published'
+                                };
+                            default:
+                                return {
+                                    icon: 'help_outline',
+                                    class: 'hunkpro-status-unknown',
+                                    title: 'Status Unknown'
+                                };
+                        }
+                    };
+
+                    const statusInfo = getStatusIconInfo(publishStatus);
+
                     return {
-                        html: `<div class="hunkpro-event-content"><div class="hunkpro-event-title">${arg.event.title}</div></div>`
+                        html: `
+    <div class="hunkpro-event-content">
+        <div class="hunkpro-event-title">${arg.event.title}</div>
+        <div class="hunkpro-event-icons">
+            ${hasNotes ? `
+                <div class="hunkpro-event-icon hunkpro-note-icon" title="Has Notes">
+                    <div class="hunkpro-status-icon">
+                        <span class="material-icons">description</span>
+                    </div>
+                </div>
+            ` : ''}
+            <div class="hunkpro-event-icon ${statusInfo.class}" title="${statusInfo.title}">
+                <div class="hunkpro-status-icon">
+                    <span class="material-icons">${statusInfo.icon}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+`
                     };
                 }
-                // return null;
                 return `${arg.event.title}`;
-            }
+            },
         });
 
         // Initialize calendar
@@ -885,11 +940,11 @@ window.HunkProScheduler = {
             Swal.fire({
                 title: 'Copy Week Schedule',
                 html: `
-                    Do you want to copy schedules from<br>
-                    <b>${currentWeekFormatted}</b><br>
-                    to<br>
-                    <b>${nextWeekFormatted}</b>?
-                `,
+        Do you want to copy schedules from<br>
+        <b>${currentWeekFormatted}</b><br>
+        to<br>
+        <b>${nextWeekFormatted}</b>?
+    `,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#158E52',
