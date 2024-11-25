@@ -707,6 +707,10 @@ window.HunkProScheduler = {
             displayEventTime: false,
             displayEventEnd: false,
 
+            // Add these height-related settings
+            contentHeight: 'auto',
+            handleWindowResize: true,
+
             // Simplified header toolbar
             headerToolbar: {
                 left: 'today prev,next',
