@@ -88,7 +88,7 @@ window.HunkProScheduler = {
             await refreshPromise;
 
             // Add this after calendar is fully initialized
-            this.communicateHeight();
+            // this.communicateHeight();
 
             this.hideFullScreenLoader();
         } catch (error) {
