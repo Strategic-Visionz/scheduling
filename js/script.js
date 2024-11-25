@@ -87,6 +87,9 @@ window.HunkProScheduler = {
             });
             await refreshPromise;
 
+            // Add this after calendar is fully initialized
+            this.communicateHeight();
+
             this.hideFullScreenLoader();
         } catch (error) {
             console.error('Initialization error:', error);
@@ -690,6 +693,38 @@ window.HunkProScheduler = {
         }
     },
 
+    // Add this function to your HunkProScheduler object
+    communicateHeight: function () {
+        const sendHeight = () => {
+            // Get the total height of the page content
+            const totalHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
+
+            // Send message to parent (Tadabase)
+            window.parent.postMessage({
+                type: 'setHeight',
+                height: totalHeight,
+                source: 'schedulerCalendar'
+            }, '*');
+        };
+
+        // Send height after calendar initialization
+        this.calendar.on('viewDidMount', sendHeight);
+
+        // Send height after any updates that might affect height
+        this.calendar.on('resourceAdd', sendHeight);
+        this.calendar.on('resourceRemove', sendHeight);
+        this.calendar.on('eventAdd', sendHeight);
+        this.calendar.on('eventRemove', sendHeight);
+
+        // Also send height after window resize
+        window.addEventListener('resize', () => {
+            setTimeout(sendHeight, 100); // Small delay to ensure calendar has updated
+        });
+
+        // Initial height communication
+        sendHeight();
+    },
+
     initializeCalendar: function (employees) {
         const calendarEl = document.getElementById('hunkpro-calendar');
 
@@ -838,24 +873,24 @@ window.HunkProScheduler = {
 
                     return {
                         html: `
-    <div class="hunkpro-event-content">
-        <div class="hunkpro-event-title">${arg.event.title}</div>
-        <div class="hunkpro-event-icons">
-            ${hasNotes ? `
-                <div class="hunkpro-event-icon hunkpro-note-icon" title="Has Notes">
-                    <div class="hunkpro-status-icon">
-                        <span class="material-icons">description</span>
-                    </div>
-                </div>
-            ` : ''}
-            <div class="hunkpro-event-icon ${statusInfo.class}" title="${statusInfo.title}">
-                <div class="hunkpro-status-icon">
-                    <span class="material-icons">${statusInfo.icon}</span>
-                </div>
-            </div>
-        </div>
-    </div>
-`
+                            <div class="hunkpro-event-content">
+                                <div class="hunkpro-event-title">${arg.event.title}</div>
+                                <div class="hunkpro-event-icons">
+                                    ${hasNotes ? `
+                                        <div class="hunkpro-event-icon hunkpro-note-icon" title="Has Notes">
+                                            <div class="hunkpro-status-icon">
+                                                <span class="material-icons">description</span>
+                                            </div>
+                                        </div>
+                                    ` : ''}
+                                    <div class="hunkpro-event-icon ${statusInfo.class}" title="${statusInfo.title}">
+                                        <div class="hunkpro-status-icon">
+                                            <span class="material-icons">${statusInfo.icon}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `
                     };
                 }
                 return `${arg.event.title}`;
