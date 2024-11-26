@@ -972,3 +972,56 @@
     resize: vertical;
     min-height: 80px;
 }
+
+
+/* Add these styles to your existing CSS */
+.hunkpro-event-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 2px;
+}
+
+.hunkpro-event-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 0 4px;
+}
+
+.hunkpro-event-tag {
+    /* font-size: 0.75rem; */
+    font-size: 0.55rem;
+    padding: 1px 6px;
+    border-radius: 12px;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hunkpro-tag-tier {
+    background-color: var(--chhj-green-light);
+    border: 1px solid var(--chhj-green-border);
+    color: var(--chhj-green);
+}
+
+.hunkpro-tag-resource {
+    background-color: var(--chhj-orange-light);
+    border: 1px solid var(--chhj-orange-border);
+    color: var(--chhj-orange);
+}
+
+/* Update existing event content styles to accommodate tags */
+.hunkpro-event-content {
+    margin-bottom: 2px;
+}
+
+/* Ensure proper spacing in the calendar cell */
+.fc-timeline-event {
+    padding: 2px !important;
+}
+
+.fc-timeline-event-harness {
+    margin: 2px 0 !important;
+}
