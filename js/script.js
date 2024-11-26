@@ -1982,5 +1982,5 @@ window.HunkProScheduler = {
 
 // Initialize the scheduler
 document.addEventListener('DOMContentLoaded', function () {
-    window.HunkProScheduler.init();
+    window.HunkProScheduler.init();//
 });
