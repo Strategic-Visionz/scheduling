@@ -90,6 +90,8 @@ window.HunkProScheduler = {
                 document.head.appendChild(jqueryScript);
             });
 
+            await this.fetchTagsData();
+
             // Load FullCalendar
             await new Promise((resolve) => {
                 const scriptElement = document.createElement('script');
@@ -127,8 +129,7 @@ window.HunkProScheduler = {
             // Add this after calendar is fully initialized
             // this.communicateHeight();
 
-            // After all initial data is loaded, fetch and store the tags data
-            await this.fetchTagsData();
+            // await this.fetchTagsData();
 
             this.hideFullScreenLoader();
 
@@ -258,7 +259,8 @@ window.HunkProScheduler = {
                                     hasNotes: item.field_479 !== null && item.field_479 !== '',
                                     publishStatus: item.field_478 || 'unknown',
                                     tags: item.field_477 || [], // Add tags to extendedProps
-                                    notes: item.field_479
+                                    notes: item.field_479,
+                                    tags2: item.field_477_val // Add tags full data from Schedule
                                 }
                             };
                         } catch (err) {
@@ -891,6 +893,7 @@ window.HunkProScheduler = {
                 if (arg.event.display !== 'background') {
                     const hasNotes = arg.event.extendedProps.hasNotes || false;
                     const publishStatus = arg.event.extendedProps.publishStatus || 'unknown';
+                    const tags = arg.event.extendedProps.tags2 || [];
 
                     const getStatusIconInfo = (status) => {
                         switch (status) {
@@ -921,26 +924,72 @@ window.HunkProScheduler = {
                         }
                     };
 
+                    // console.log('tags :::', tags);
+
                     const statusInfo = getStatusIconInfo(publishStatus);
+
+                    console.log('this.tagsTableData',this.tagsTableData);
+                    console.log('tags',tags);
+                    const processedTags = tags
+                        .map(tag => {
+                            // 
+
+                            // Find the full tag data from tagsTableData
+                            const tagData = this.tagsTableData.find(t =>
+                                tag.id === t.id
+                            );
+
+                            console.log(`Tag Data :`,tagData);
+
+                            console.log(`Tag ID: ${tag.id}`,{
+                                    id: tag.id,
+                                    label: tag.val,
+                                    type: tagData?.field_63?.toLowerCase() || '' // 'Tier' or 'Resource'
+                                });
+
+                            if (tag) {
+                                return {
+                                    id: tag.id,
+                                    label: tag.val,
+                                    type: tagData?.field_63?.toLowerCase() || '' // 'Tier' or 'Resource'
+                                };
+                            }
+                            return null;
+                        })
+                        .filter(tag => tag !== null);
+
+                    // Create tags HTML if tags exist
+                    const tagsHtml = processedTags.length > 0 ? `
+                        <div class="hunkpro-event-tags">
+                            ${processedTags.map(tag => `
+                                <span class="hunkpro-event-tag ${tag.type === 'tier' ? 'hunkpro-tag-tier' : 'hunkpro-tag-resource'}">
+                                    ${tag.label}
+                                </span>
+                            `).join('')}
+                        </div>
+                    ` : '';
 
                     return {
                         html: `
-                            <div class="hunkpro-event-content">
-                                <div class="hunkpro-event-title">${arg.event.title}</div>
-                                <div class="hunkpro-event-icons">
-                                    ${hasNotes ? `
-                                        <div class="hunkpro-event-icon hunkpro-note-icon" title="Has Notes">
-                                            <div class="hunkpro-status-icon">
-                                                <span class="material-icons">description</span>
+                            <div class="hunkpro-event-wrapper">
+                                <div class="hunkpro-event-content">
+                                    <div class="hunkpro-event-title">${arg.event.title}</div>
+                                    <div class="hunkpro-event-icons">
+                                        ${hasNotes ? `
+                                            <div class="hunkpro-event-icon hunkpro-note-icon" title="Has Notes">
+                                                <div class="hunkpro-status-icon">
+                                                    <span class="material-icons">description</span>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ` : ''}
-                                    <div class="hunkpro-event-icon ${statusInfo.class}" title="${statusInfo.title}">
-                                        <div class="hunkpro-status-icon">
-                                            <span class="material-icons">${statusInfo.icon}</span>
+                                        ` : ''}
+                                        <div class="hunkpro-event-icon ${statusInfo.class}" title="${statusInfo.title}">
+                                            <div class="hunkpro-status-icon">
+                                                <span class="material-icons">${statusInfo.icon}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
+                                ${tagsHtml}
                             </div>
                         `
                     };
@@ -1933,5 +1982,5 @@ window.HunkProScheduler = {
 
 // Initialize the scheduler
 document.addEventListener('DOMContentLoaded', function () {
-    window.HunkProScheduler.init();
+    window.HunkProScheduler.init();//
 });
