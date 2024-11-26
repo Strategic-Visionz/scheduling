@@ -1553,8 +1553,6 @@ window.HunkProScheduler = {
             notesInput.value = info.event.extendedProps.notes || '';
         }
 
-        console.log("Notes ::: ",info.event.extendedProps.notes);
-
         // Populate tags based on the resource
         // this.populateTags(mode === 'add' ? info.resource : info.event.getResources()[0]);
 
