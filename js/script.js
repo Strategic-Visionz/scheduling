@@ -27,6 +27,43 @@ window.HunkProScheduler = {
         'Suspension': 'hunkpro-unavailable-suspension'
     },
 
+    tagsTableData: [],
+
+    fetchTagsData: function () {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                "url": "https://api.tadabase.io/api/v1/data-tables/q3kjZVj6Vb/records?limit=100",
+                "method": "GET",
+                "timeout": 0,
+                "headers": {
+                    "X-Tadabase-App-id": this.tb_app_id,
+                    "X-Tadabase-App-Key": this.tb_app_key,
+                    "X-Tadabase-App-Secret": this.tb_app_secret
+                },
+                "processData": false,
+                "mimeType": "multipart/form-data",
+                "contentType": false,
+                success: (data) => {
+                    try {
+                        const parsedData = JSON.parse(data);
+                        // Store only the items array from the response
+                        this.tagsTableData = parsedData.items || [];
+                        console.log('Tags data loaded:', this.tagsTableData);
+                        resolve(this.tagsTableData);
+                    } catch (error) {
+                        console.error('Error parsing tags data:', error);
+                        reject(error);
+                    }
+                },
+                error: (error) => {
+                    console.error('Error fetching tags data:', error);
+                    reject(error);
+                }
+            });
+        });
+    },
+
+
     showFullScreenLoader: function () {
         const loader = document.querySelector('.chhj-fullscreen-loader');
         if (loader) {
@@ -90,7 +127,13 @@ window.HunkProScheduler = {
             // Add this after calendar is fully initialized
             // this.communicateHeight();
 
+            // After all initial data is loaded, fetch and store the tags data
+            await this.fetchTagsData();
+
             this.hideFullScreenLoader();
+
+
+
         } catch (error) {
             console.error('Initialization error:', error);
             // Show error in loader
@@ -126,6 +169,7 @@ window.HunkProScheduler = {
                             status: item.status,
                             weeklyShifts: 0,
                             position: item.field_395_val,
+                            tags: item.field_62_val || []
                         }
                     }));
                     resolve(users);
@@ -194,7 +238,7 @@ window.HunkProScheduler = {
 
                             // Get the CSS class based on position name
                             const cssClass = positionClassMap[positionName] || 'hunkpro-shift-default';
-
+                            console.log("fetchSchedules ::: item ::: ", item);
                             // Ensure we have valid resourceId
                             const resourceId = Array.isArray(item.field_58) ? item.field_58[0] : item.field_58;
                             if (!resourceId) {
@@ -212,7 +256,9 @@ window.HunkProScheduler = {
                                 allDay: true,
                                 extendedProps: {
                                     hasNotes: item.field_479 !== null && item.field_479 !== '',
-                                    publishStatus: item.field_478 || 'unknown'
+                                    publishStatus: item.field_478 || 'unknown',
+                                    tags: item.field_477 || [], // Add tags to extendedProps
+                                    notes: item.field_479
                                 }
                             };
                         } catch (err) {
@@ -430,16 +476,17 @@ window.HunkProScheduler = {
         });
     },
     addShift: function (newShift) {
-        // Create FormData object
         const form = new FormData();
         form.append('field_60', newShift.date); // Date
         form.append('field_58', newShift.user); // Employee
         form.append('field_59', newShift.position); // Position
+        form.append('field_477', newShift.tags); // Tags
 
-        // Store reference to 'this' for use in callback
-        const self = this;
+        if (newShift.notes) {
+            form.append('field_479', newShift.notes); // Notes
+        }
 
-        // Return promise for better error handling
+        // Rest of the addShift method remains the same...
         return new Promise((resolve, reject) => {
             $.ajax({
                 url: `https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records`,
@@ -453,15 +500,12 @@ window.HunkProScheduler = {
                 data: form,
                 processData: false,
                 contentType: false,
-                success: function (response) {
+                success: (response) => {
                     console.log('Add Shift Response:', response);
-                    // Refresh events after successful addition
-
-                    self.clearAllOverrides();
-                    self.refreshEvents().then(resolve).catch(reject);
-
+                    this.clearAllOverrides();
+                    this.refreshEvents().then(resolve).catch(reject);
                 },
-                error: function (error) {
+                error: (error) => {
                     console.error('Error adding shift:', error);
                     reject(error);
                 }
@@ -476,6 +520,14 @@ window.HunkProScheduler = {
         form.append('field_60', shift.date); // Date
         // form.append('field_58', shift.user); // Employee
         form.append('field_59', shift.position); // Position
+
+        if (shift.tags) {
+            form.append('field_477', shift.tags); // Tags
+        }
+
+        if (shift.notes !== undefined) {
+            form.append('field_479', shift.notes); // Notes
+        }
 
         // Store reference to 'this' for use in callback
         const self = this;
@@ -1099,12 +1151,12 @@ window.HunkProScheduler = {
                     if (result.isConfirmed) {
                         this.clearAllOverrides();
                         this.addOverrideDate(info.resource.id, info.start);
-                        this.openModal('add', info);
+                        this.openModal('add', info);  // Simplified back to original
                     }
                 });
             }
         } else {
-            this.openModal('add', info);
+            this.openModal('add', info);  // Simplified back to original
         }
     },
 
@@ -1269,13 +1321,13 @@ window.HunkProScheduler = {
         const formLoader = document.getElementById('form-loader');
         const formOptions = document.getElementById('form-options');
 
+        // Initialize Bootstrap modal
+        const bsModal = new bootstrap.Modal(modal);
+
         formLoader.style.display = 'none';
         formLoader.classList.add('chhj-hide');
         formOptions.style.display = 'flex';
         formOptions.classList.remove('chhj-hide');
-
-        // Initialize Bootstrap modal
-        const bsModal = new bootstrap.Modal(modal);
 
         // Close button handler
         closeBtn.onclick = () => {
@@ -1294,8 +1346,16 @@ window.HunkProScheduler = {
         modal.addEventListener('hidden.bs.modal', () => {
             this.clearError();
             this.toggleLoader(false);
-            this.clearAllOverrides(); // Ensure overrides are cleared when modal is closed
-            // Destroy datepicker to ensure clean slate for next opening
+            this.clearAllOverrides();
+
+            // Clear all tag selections
+            const tagElements = modal.querySelectorAll('.tag-item');
+            tagElements.forEach(tag => tag.classList.remove('selected'));
+
+            // Clear notes
+            const notesField = document.getElementById('hunkpro-shift-notes');
+            if (notesField) notesField.value = '';
+
             if (this.datePicker) {
                 this.datePicker.destroy();
                 this.datePicker = null;
@@ -1310,6 +1370,97 @@ window.HunkProScheduler = {
                 bsModal.hide();
             }
         });
+
+        // Add tag click handlers
+        const setupTagHandlers = () => {
+            const tagContainers = modal.querySelectorAll('.tags-container');
+            tagContainers.forEach(container => {
+                // container.addEventListener('click', (e) => {
+                //     const tagItem = e.target.closest('.tag-item');
+                //     if (tagItem) {
+                //         tagItem.classList.toggle('selected');
+                //         e.stopPropagation();
+                //     }
+                // });
+            });
+        };
+
+        setupTagHandlers();
+        return bsModal;
+    },
+
+    populateTags: function (resource, mode, event = null) {
+        const containers = {
+            'Tier': document.getElementById('tier-tags-container'),
+            'Resource': document.getElementById('resource-tags-container')
+        };
+
+        // Clear existing tags
+        Object.values(containers).forEach(container => container.innerHTML = '');
+
+        // Determine which tags to show based on mode
+        const tagsToShow = mode === 'edit' && event?.extendedProps?.tags
+            ? event.extendedProps.tags
+            : (resource.extendedProps.tags || []);
+
+        // Group and filter tags by type
+        this.tagsTableData
+            .filter(tag => tagsToShow.some(t =>
+                (typeof t === 'object' ? t.id : t) === tag.id))
+            .forEach(tag => {
+                const container = containers[tag.field_63];
+                if (container) {
+                    container.appendChild(this.createTagElement({
+                        id: tag.id,
+                        field_43: tag.field_43
+                    },
+                        tag.field_63.toLowerCase(),
+                        mode === 'edit' && event?.extendedProps?.tags));
+                }
+            });
+    },
+
+    createTagElement: function (tag, type) {
+        const tagDiv = document.createElement('div');
+        tagDiv.className = 'tag-item';
+        tagDiv.dataset.tagId = tag.id;
+        tagDiv.dataset.tagType = type;
+
+        // Set custom properties based on tag type using CHHJ colors
+        if (type === 'tier') {
+            tagDiv.style.setProperty('--tag-bg', 'var(--chhj-green-light)');
+            tagDiv.style.setProperty('--tag-border', 'var(--chhj-green-border)');
+            tagDiv.style.setProperty('--tag-text', 'var(--chhj-green)');
+        } else if (type === 'resource') {
+            tagDiv.style.setProperty('--tag-bg', 'var(--chhj-orange-light)');
+            tagDiv.style.setProperty('--tag-border', 'var(--chhj-orange-border)');
+            tagDiv.style.setProperty('--tag-text', 'var(--chhj-orange)');
+        }
+
+        tagDiv.innerHTML = `
+            ${tag.field_43}
+            <span class="tag-remove material-icons" style="font-size: 18px;">close</span>
+        `;
+
+        // Only add click handler to the remove button
+        tagDiv.querySelector('.tag-remove').addEventListener('click', (e) => {
+            e.stopPropagation();
+            tagDiv.remove();
+        });
+
+        return tagDiv;
+    },
+
+    // Update getSelectedTags to handle static tags
+    getSelectedTags: function () {
+        const modal = document.getElementById('hunkpro-shift-modal');
+        const allTags = Array.from(modal.querySelectorAll('.tag-item'))
+            .map(tag => ({
+                id: tag.dataset.tagId,
+                type: tag.dataset.tagType
+            }));
+
+        return allTags;
     },
 
     renderPositionOptions: function (resource, mode, event) {
@@ -1366,47 +1517,70 @@ window.HunkProScheduler = {
         const dateInput = document.getElementById('hunkpro-shift-date');
         const employeeInput = document.getElementById('hunkpro-shift-employee');
         const positionSelect = document.getElementById('hunkpro-shift-position');
+        const notesInput = document.getElementById('hunkpro-shift-notes');
 
         this.toggleLoader(false);
         this.clearError();
 
         modalTitle.textContent = mode === 'add' ? 'Add Shift' : 'Edit Shift';
 
-        // Set modal data attributes before initializing date picker
+        // Set modal data attributes
         modal.dataset.mode = mode;
         modal.dataset.resourceId = mode === 'add' ? info.resource.id : info.event.getResources()[0].id;
         modal.dataset.start = mode === 'add' ? info.startStr : info.event.startStr;
+
         if (mode === 'edit') {
             modal.dataset.eventId = info.event.id;
             const eventDate = new Date(info.event.start);
             this.addOverrideDate(info.event.getResources()[0].id, eventDate);
         }
 
-        // Initialize date picker after setting modal data
+        // Initialize date picker
         this.initializeDatePicker();
 
-        // Set values after date picker is initialized
+        // Set form values
         if (mode === 'add') {
             this.datePicker.setDate(info.start);
             employeeInput.value = info.resource.title;
             positionSelect.value = '';
             this.renderPositionOptions(info.resource, mode, null);
+            notesInput.value = ''; // Clear notes for new shifts
         } else {
             this.datePicker.setDate(info.event.start);
             employeeInput.value = info.event.getResources()[0].title;
             positionSelect.value = info.event.title.toLowerCase();
             this.renderPositionOptions(info.event.getResources()[0], mode, info.event);
+            notesInput.value = info.event.extendedProps.notes || '';
+        }
+
+        console.log("Notes ::: ",info.event.extendedProps.notes);
+
+        // Populate tags based on the resource
+        // this.populateTags(mode === 'add' ? info.resource : info.event.getResources()[0]);
+
+        // Populate tags based on the mode and available data
+        if (mode === 'add') {
+            this.populateTags(info.resource, mode);
+        } else {
+            this.populateTags(info.event.getResources()[0], mode, info.event);
         }
 
         const bsModal = new bootstrap.Modal(modal);
         bsModal.show();
+
+
     },
 
     // Update handleFormSubmit to use Bootstrap modal
     handleFormSubmit: async function () {
         const modal = document.getElementById('hunkpro-shift-modal');
         const position = document.getElementById('hunkpro-shift-position').value;
+        const notesInput = document.getElementById('hunkpro-shift-notes').value;
         const isAddMode = modal.dataset.mode === 'add';
+        console.log('isAddMode', isAddMode);
+
+        const selectedTags = this.getSelectedTags();
+        const tagIds = selectedTags.map(tag => tag.id);
 
         this.clearError();
 
@@ -1426,7 +1600,9 @@ window.HunkProScheduler = {
                 const newShift = {
                     user: modal.dataset.resourceId,
                     position: position,
-                    date: selectedDate
+                    date: selectedDate,
+                    tags: tagIds,
+                    notes: notesInput
                 };
 
                 await this.addShift(newShift);
@@ -1440,7 +1616,9 @@ window.HunkProScheduler = {
                 await this.updateShift({
                     id: event?.id || '',
                     date: selectedDate,
-                    position: $('#hunkpro-shift-position').val() || ''
+                    position: $('#hunkpro-shift-position').val() || '',
+                    tags: tagIds,
+                    notes: notesInput
                 });
             }
 

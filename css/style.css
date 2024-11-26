@@ -2,6 +2,11 @@
     --chhj-orange: #D9782D;
     /*--chhj-green: #2C673C;*/
     --chhj-green: #158E52;
+
+    --chhj-orange-light: #fff1e9;
+    --chhj-orange-border: #ffa161;
+    --chhj-green-light: #e8f5ee;
+    --chhj-green-border: #2fb777;
 }
 
 /*
@@ -900,4 +905,70 @@
     display: flex !important;
     align-items: center;
     justify-content: center;
+}
+
+/* Tags & Notes */
+.tags-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px;
+    min-height: 42px;
+    background: transparent !important;
+    border: none !important;
+    /* Remove border */
+    box-shadow: none !important;
+    /* Remove any box shadows */
+    outline: none !important;
+    /* Remove outline */
+}
+
+/* Simplified tag item styles - no hover or click effects */
+.tag-item {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 16px;
+    gap: 6px;
+    background: var(--tag-bg, #f8f9fa);
+    border: 1px solid var(--tag-border, #dee2e6);
+    color: var(--tag-text, #212529);
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.tag-item:hover {
+    opacity: 0.9;
+}
+
+.tag-item.selected {
+    transform: scale(0.98);
+}
+
+
+.tag-item.selected .tag-remove {
+    color: white;
+}
+
+.tag-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    line-height: 1;
+    font-size: 16px;
+    color: inherit;
+    opacity: 0.7;
+    cursor: pointer;
+    margin-left: 4px;
+}
+
+.tag-remove:hover {
+    opacity: 1;
+}
+
+#hunkpro-shift-notes {
+    resize: vertical;
+    min-height: 80px;
 }
