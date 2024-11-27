@@ -108,41 +108,59 @@ window.HunkProScheduler = {
         // If no categories have data, return empty string to prevent popup
         if (!hasServiceCategories && !hasTagCategories) return '';
 
-        let html = '<div class="tag-stats-popup">';
+        let html = `
+            <div class="tag-stats-popup" style="display: grid; grid-template-columns: 1fr 1px 1fr; gap: 16px; width: 450px;">
+                <!-- Service Categories Column -->
+                <div style="min-width: 0;">
+                    <h6 style="color: var(--chhj-orange); border-bottom: 2px solid var(--chhj-orange-light); padding-bottom: 8px; margin-bottom: 12px;">
+                        Service Categories
+                    </h6>
+                    ${hasServiceCategories ? Object.entries(stats.serviceCategories).map(([category, data]) => `
+                        <div class="category-group" style="margin-bottom: 12px;">
+                            <div class="category-header" style="color: var(--chhj-orange); font-weight: 500; margin-bottom: 4px;">
+                                ${category} (${data.total})
+                            </div>
+                            <div class="tag-list" style="padding-left: 12px;">
+                                ${Object.entries(data.tags).map(([tag, count]) => `
+                                    <div class="tag-item" style="margin-bottom: 2px;">
+                                        <span style="color: var(--chhj-orange); font-weight: 600; font-size: 0.9em;">
+                                            ${count}
+                                        </span> - ${tag}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('') : '<div style="color: #666;">No service categories available</div>'}
+                </div>
 
-        // Only add service categories section if there is data
-        if (hasServiceCategories) {
-            html += '<div class="stats-section">';
-            html += '<h3>By Service Category</h3>';
-            Object.entries(stats.serviceCategories).forEach(([category, data]) => {
-                html += `<div class="category-group">`;
-                html += `<div class="category-header">${category} (${data.total})</div>`;
-                html += `<div class="tag-list">`;
-                Object.entries(data.tags).forEach(([tag, count]) => {
-                    html += `<div class="tag-item"><span class="font-weight-bold" style="color:var(--chhj-orange);font-size:0.8rem;">${count}</span> - ${tag}</div>`;
-                });
-                html += `</div></div>`;
-            });
-            html += '</div>';
-        }
+                <!-- Vertical Divider -->
+                <div style="background-color: #eee; height: 100%;"></div>
 
-        // Only add tag categories section if there is data
-        if (hasTagCategories) {
-            html += '<div class="stats-section">';
-            html += '<h3>By Tag Category</h3>';
-            Object.entries(stats.tagCategories).forEach(([category, data]) => {
-                html += `<div class="category-group">`;
-                html += `<div class="category-header">${category} (${data.total})</div>`;
-                html += `<div class="tag-list">`;
-                Object.entries(data.tags).forEach(([tag, count]) => {
-                    html += `<div class="tag-item"><span class="font-weight-bold" style="color:var(--chhj-orange);font-size:0.8rem;">${count}</span> - ${tag}</div>`;
-                });
-                html += `</div></div>`;
-            });
-            html += '</div>';
-        }
+                <!-- Tag Categories Column -->
+                <div style="min-width: 0;">
+                    <h6 style="color: var(--chhj-green); border-bottom: 2px solid var(--chhj-green-light); padding-bottom: 8px; margin-bottom: 12px;">
+                        Tag Categories
+                    </h6>
+                    ${hasTagCategories ? Object.entries(stats.tagCategories).map(([category, data]) => `
+                        <div class="category-group" style="margin-bottom: 12px;">
+                            <div class="category-header" style="color: var(--chhj-green); font-weight: 500; margin-bottom: 4px;">
+                                ${category} (${data.total})
+                            </div>
+                            <div class="tag-list" style="padding-left: 12px;">
+                                ${Object.entries(data.tags).map(([tag, count]) => `
+                                    <div class="tag-item" style="margin-bottom: 2px;">
+                                        <span style="color: var(--chhj-green); font-weight: 600; font-size: 0.9em;">
+                                            ${count}
+                                        </span> - ${tag}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('') : '<div style="color: #666;">No tag categories available</div>'}
+                </div>
+            </div>
+        `;
 
-        html += '</div>';
         return html;
     },
 
