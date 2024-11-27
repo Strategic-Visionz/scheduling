@@ -101,9 +101,11 @@ window.HunkProScheduler = {
         const stats = this.tagStatistics[dateStr];
         if (!stats) return '';
 
-        // Check if there are any categories with data
-        const hasServiceCategories = Object.keys(stats.serviceCategories).length > 0;
-        const hasTagCategories = Object.keys(stats.tagCategories).length > 0;
+        // Check if there are any categories with data (excluding Uncategorized)
+        const hasServiceCategories = Object.entries(stats.serviceCategories)
+            .filter(([category]) => category !== 'Uncategorized')
+            .length > 0;
+        const hasTagCategories = Object.entries(stats.tagCategories).length > 0;
 
         // If no categories have data, return empty string to prevent popup
         if (!hasServiceCategories && !hasTagCategories) return '';
@@ -115,22 +117,24 @@ window.HunkProScheduler = {
                     <h6 style="color: var(--chhj-orange); border-bottom: 2px solid var(--chhj-orange-light); padding-bottom: 8px; margin-bottom: 12px;">
                         Service Categories
                     </h6>
-                    ${hasServiceCategories ? Object.entries(stats.serviceCategories).map(([category, data]) => `
-                        <div class="category-group" style="margin-bottom: 12px;">
-                            <div class="category-header" style="color: var(--chhj-orange); font-weight: 500; margin-bottom: 4px;">
-                                ${category} (${data.total})
+                    ${hasServiceCategories ? Object.entries(stats.serviceCategories)
+                                .filter(([category]) => category !== 'Uncategorized') // Filter out Uncategorized
+                                .map(([category, data]) => `
+                            <div class="category-group" style="margin-bottom: 12px;">
+                                <div class="category-header" style="color: var(--chhj-orange); font-weight: 500; margin-bottom: 4px;">
+                                    ${category} (${data.total})
+                                </div>
+                                <div class="tag-list" style="padding-left: 12px;">
+                                    ${Object.entries(data.tags).map(([tag, count]) => `
+                                        <div class="tag-item" style="margin-bottom: 2px;">
+                                            <span style="color: var(--chhj-orange); font-weight: 600; font-size: 0.9em;">
+                                                ${count}
+                                            </span> - ${tag}
+                                        </div>
+                                    `).join('')}
+                                </div>
                             </div>
-                            <div class="tag-list" style="padding-left: 12px;">
-                                ${Object.entries(data.tags).map(([tag, count]) => `
-                                    <div class="tag-item" style="margin-bottom: 2px;">
-                                        <span style="color: var(--chhj-orange); font-weight: 600; font-size: 0.9em;">
-                                            ${count}
-                                        </span> - ${tag}
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `).join('') : '<div style="color: #666;">No service categories available</div>'}
+                        `).join('') : '<div style="color: #666;">No service categories available</div>'}
                 </div>
 
                 <!-- Vertical Divider -->
