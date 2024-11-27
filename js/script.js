@@ -28,6 +28,251 @@ window.HunkProScheduler = {
     },
 
     tagsTableData: [],
+    tagStatistics: {},
+
+    // Process and store tag statistics when processing shifts
+    processTagStatistics: function (date) {
+        const dateStr = new Date(date).toISOString().split('T')[0];
+        if (!this.tagStatistics[dateStr]) {
+            this.tagStatistics[dateStr] = {
+                serviceCategories: {},
+                tagCategories: {}
+            };
+        }
+
+        // Get all shifts for this date
+        const shiftsForDate = this.shifts.filter(shift => {
+            const shiftDate = new Date(shift.start).toISOString().split('T')[0];
+            return shiftDate === dateStr;
+        });
+
+        // Reset counts for this date
+        this.tagStatistics[dateStr] = {
+            serviceCategories: {},
+            tagCategories: {}
+        };
+
+        // Process each shift's tags
+        shiftsForDate.forEach(shift => {
+            if (shift.extendedProps && shift.extendedProps.tags2) {
+                shift.extendedProps.tags2.forEach(tag => {
+                    // Find the full tag data
+                    const tagData = this.tagsTableData.find(t => t.id === tag.id);
+                    if (tagData) {
+                        // Process Service Category counts
+                        const serviceCategory = tagData.field_70 || 'Uncategorized';
+                        if (!this.tagStatistics[dateStr].serviceCategories[serviceCategory]) {
+                            this.tagStatistics[dateStr].serviceCategories[serviceCategory] = {
+                                total: 0,
+                                tags: {}
+                            };
+                        }
+                        this.tagStatistics[dateStr].serviceCategories[serviceCategory].total++;
+
+                        // Track individual tags within service category
+                        if (!this.tagStatistics[dateStr].serviceCategories[serviceCategory].tags[tag.val]) {
+                            this.tagStatistics[dateStr].serviceCategories[serviceCategory].tags[tag.val] = 0;
+                        }
+                        this.tagStatistics[dateStr].serviceCategories[serviceCategory].tags[tag.val]++;
+
+                        // Process Tag Category counts
+                        const tagCategory = tagData.field_63 || 'Uncategorized';
+                        if (!this.tagStatistics[dateStr].tagCategories[tagCategory]) {
+                            this.tagStatistics[dateStr].tagCategories[tagCategory] = {
+                                total: 0,
+                                tags: {}
+                            };
+                        }
+                        this.tagStatistics[dateStr].tagCategories[tagCategory].total++;
+
+                        // Track individual tags within tag category
+                        if (!this.tagStatistics[dateStr].tagCategories[tagCategory].tags[tag.val]) {
+                            this.tagStatistics[dateStr].tagCategories[tagCategory].tags[tag.val] = 0;
+                        }
+                        this.tagStatistics[dateStr].tagCategories[tagCategory].tags[tag.val]++;
+                    }
+                });
+            }
+        });
+    },
+
+    // Generate HTML for the hover popup
+    generateTagStatisticsHTML: function (dateStr) {
+        const stats = this.tagStatistics[dateStr];
+        if (!stats) return '';
+
+        // Check if there are any categories with data
+        const hasServiceCategories = Object.keys(stats.serviceCategories).length > 0;
+        const hasTagCategories = Object.keys(stats.tagCategories).length > 0;
+
+        // If no categories have data, return empty string to prevent popup
+        if (!hasServiceCategories && !hasTagCategories) return '';
+
+        let html = '<div class="tag-stats-popup">';
+
+        // Only add service categories section if there is data
+        if (hasServiceCategories) {
+            html += '<div class="stats-section">';
+            html += '<h3>By Service Category</h3>';
+            Object.entries(stats.serviceCategories).forEach(([category, data]) => {
+                html += `<div class="category-group">`;
+                html += `<div class="category-header">${category} (${data.total})</div>`;
+                html += `<div class="tag-list">`;
+                Object.entries(data.tags).forEach(([tag, count]) => {
+                    html += `<div class="tag-item"><span class="font-weight-bold" style="color:var(--chhj-orange);font-size:0.8rem;">${count}</span> - ${tag}</div>`;
+                });
+                html += `</div></div>`;
+            });
+            html += '</div>';
+        }
+
+        // Only add tag categories section if there is data
+        if (hasTagCategories) {
+            html += '<div class="stats-section">';
+            html += '<h3>By Tag Category</h3>';
+            Object.entries(stats.tagCategories).forEach(([category, data]) => {
+                html += `<div class="category-group">`;
+                html += `<div class="category-header">${category} (${data.total})</div>`;
+                html += `<div class="tag-list">`;
+                Object.entries(data.tags).forEach(([tag, count]) => {
+                    html += `<div class="tag-item"><span class="font-weight-bold" style="color:var(--chhj-orange);font-size:0.8rem;">${count}</span> - ${tag}</div>`;
+                });
+                html += `</div></div>`;
+            });
+            html += '</div>';
+        }
+
+        html += '</div>';
+        return html;
+    },
+
+    // Add hover functionality to date headers
+    setupDateHeaderHovers: function () {
+        // Remove any existing tooltip
+        const existingTooltip = document.querySelector('.tag-stats-tooltip');
+        if (existingTooltip) {
+            existingTooltip.remove();
+        }
+
+        // Create a single tooltip element
+        const tooltip = document.createElement('div');
+        tooltip.className = 'tag-stats-tooltip';
+        tooltip.style.display = 'none';
+        document.body.appendChild(tooltip);
+
+        const handleHeaderHover = (headerCell) => {
+            // Get date from the th element's data attribute
+            const dateStr = headerCell.getAttribute('data-date');
+            if (!dateStr) return;
+
+            // Process statistics for this date
+            this.processTagStatistics(dateStr);
+
+            // Create event handlers
+            const showTooltip = (e) => {
+                const tooltipContent = this.generateTagStatisticsHTML(dateStr);
+
+                // Only show tooltip if there's content
+                if (!tooltipContent) return;
+
+                const tooltip = document.querySelector('.tag-stats-tooltip');
+                const rect = e.target.getBoundingClientRect();  // Use the actual hovered element
+                tooltip.innerHTML = tooltipContent;
+                tooltip.style.display = 'block';
+
+                // Position tooltip considering scroll
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+                const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+
+                // Calculate initial position
+                let top = rect.bottom + scrollTop + 5;
+                let left = rect.left + scrollLeft;
+
+                // Adjust for viewport boundaries
+                const viewportWidth = window.innerWidth;
+                const viewportHeight = window.innerHeight;
+                const tooltipRect = tooltip.getBoundingClientRect();
+
+                // Adjust horizontal position if needed
+                if (left + tooltipRect.width > viewportWidth) {
+                    left = Math.max(0, viewportWidth - tooltipRect.width - 10);
+                }
+
+                // Adjust vertical position if needed
+                if (top + tooltipRect.height > viewportHeight + scrollTop) {
+                    top = rect.top + scrollTop - tooltipRect.height - 5;
+                }
+
+                tooltip.style.left = `${left}px`;
+                tooltip.style.top = `${top}px`;
+            };
+
+            const hideTooltip = () => {
+                const tooltip = document.querySelector('.tag-stats-tooltip');
+                if (tooltip) tooltip.style.display = 'none';
+            };
+
+            // Use MutationObserver to watch for the count element being added
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.classList && node.classList.contains('hunkpro-header-count')) {
+                            // Remove any existing listeners
+                            node.removeEventListener('mouseenter', showTooltip);
+                            node.removeEventListener('mouseleave', hideTooltip);
+
+                            // Add new listeners
+                            node.addEventListener('mouseenter', showTooltip);
+                            node.addEventListener('mouseleave', hideTooltip);
+                        }
+                    });
+                });
+            });
+
+            // Start observing the header cell for changes
+            observer.observe(headerCell, { childList: true });
+
+            // Store observer reference for cleanup
+            headerCell._countObserver = observer;
+        };
+
+        const initializeHeaderHovers = () => {
+            // Select all header cells with data-date attribute
+            const headerCells = this.calendar.el.querySelectorAll('th[data-date]');
+            headerCells.forEach(handleHeaderHover);
+        };
+
+        // Initialize on calendar view changes
+        this.calendar.on('datesSet', () => {
+            setTimeout(initializeHeaderHovers, 100);
+        });
+
+        // Initial setup
+        setTimeout(initializeHeaderHovers, 100);
+
+        // Handle window resize
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            tooltip.style.display = 'none';
+            resizeTimeout = setTimeout(() => {
+                initializeHeaderHovers();
+            }, 150);
+        });
+
+        // Cleanup on calendar destroy
+        this.calendar.on('destroy', () => {
+            tooltip.remove();
+            // Cleanup all observers
+            const headerCells = this.calendar.el.querySelectorAll('th[data-date]');
+            headerCells.forEach(cell => {
+                if (cell._countObserver) {
+                    cell._countObserver.disconnect();
+                    delete cell._countObserver;
+                }
+            });
+        });
+    },
 
     fetchTagsData: function () {
         return new Promise((resolve, reject) => {
@@ -483,6 +728,7 @@ window.HunkProScheduler = {
         form.append('field_58', newShift.user); // Employee
         form.append('field_59', newShift.position); // Position
         form.append('field_477', newShift.tags); // Tags
+        form.append('field_478', 'Not Published');
 
         if (newShift.notes) {
             form.append('field_479', newShift.notes); // Notes
@@ -928,8 +1174,8 @@ window.HunkProScheduler = {
 
                     const statusInfo = getStatusIconInfo(publishStatus);
 
-                    console.log('this.tagsTableData',this.tagsTableData);
-                    console.log('tags',tags);
+                    console.log('this.tagsTableData', this.tagsTableData);
+                    console.log('tags', tags);
                     const processedTags = tags
                         .map(tag => {
                             // 
@@ -939,13 +1185,13 @@ window.HunkProScheduler = {
                                 tag.id === t.id
                             );
 
-                            console.log(`Tag Data :`,tagData);
+                            console.log(`Tag Data :`, tagData);
 
-                            console.log(`Tag ID: ${tag.id}`,{
-                                    id: tag.id,
-                                    label: tag.val,
-                                    type: tagData?.field_63?.toLowerCase() || '' // 'Tier' or 'Resource'
-                                });
+                            console.log(`Tag ID: ${tag.id}`, {
+                                id: tag.id,
+                                label: tag.val,
+                                type: tagData?.field_63?.toLowerCase() || '' // 'Tier' or 'Resource'
+                            });
 
                             if (tag) {
                                 return {
@@ -1001,6 +1247,7 @@ window.HunkProScheduler = {
         // Initialize calendar
         this.calendar.render();
         this.initializeModalHandlers();
+        this.setupDateHeaderHovers();
 
         // Add window resize handler
         window.addEventListener('resize', () => {
@@ -1760,6 +2007,16 @@ window.HunkProScheduler = {
         // Ensure calendar is rendered before updating counts
         if (!this.calendar.isRendered) {
             return;
+        }
+
+        // Get current view dates
+        const viewStart = this.calendar.view.activeStart;
+        const viewEnd = this.calendar.view.activeEnd;
+
+        // Process tag statistics for each day in the view
+        for (let date = new Date(viewStart); date < viewEnd; date.setDate(date.getDate() + 1)) {
+            this.processTagStatistics(date);
+            console.log(`Tag Statistics ${date} ::: `, this.tagStatistics);
         }
 
         // Update resource shift counts
