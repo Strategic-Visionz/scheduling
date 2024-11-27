@@ -1025,3 +1025,61 @@
 .fc-timeline-event-harness {
     margin: 2px 0 !important;
 }
+
+/* Count Hover Popup Styles */
+.tag-stats-tooltip {
+    position: absolute;
+    z-index: 1000;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    padding: 12px;
+    /* max-width: 400px; */
+    font-size: 12px;
+}
+
+.tag-stats-popup {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.stats-section {
+    border-bottom: 1px solid #eee;
+    padding-bottom: 12px;
+}
+
+.stats-section:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.stats-section h3 {
+    font-size: 14px;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+    color: #333;
+}
+
+.category-group {
+    margin-bottom: 8px;
+}
+
+.category-header {
+    font-weight: 500;
+    color: var(--chhj-green);
+    margin-bottom: 4px;
+}
+
+.tag-list {
+    padding-left: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tag-item {
+    color: #666;
+    font-size: 11px;
+}
