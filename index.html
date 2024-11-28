@@ -96,9 +96,74 @@
             <div class="chhj-loader-content">
                 <div class="chhj-loader chhj-loader-segment"></div>
                 <div class="chhj-loader-text">Loading schedule data</div>
-                <div class="chhj-loader-details">Please wait while we fetch all necessary information </div>
+                <div class="chhj-loader-details">Please wait while we fetch all necessary information</div>
             </div>
         </div>
+
+        <div id="hunkpro-publish-modal" class="modal fade" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Publish Shifts</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="publish-content">
+                            <h6>Publish shifts in the current timeline</h6>
+                            <div id="publish-date-range" class="mb-3"></div>
+
+                            <div class="publish-stats">
+                                <div class="stats-loader chhj-hide">
+                                    <div class="chhj-loader chhj-loader-segment"></div>
+                                    <p>Refreshing shift data...</p>
+                                </div>
+                                <div class="stats-content">
+                                    <p>Publish: <span id="publishCount">0</span></p>
+                                    <p>Republish: <span id="republishCount">0</span></p>
+                                    <p><s>Conflicts: <span id="conflictsCount">0</span> [ no calculation yet ]</s></p>
+                                </div>
+                                <div class="conflict-message mt-2">
+                                    <small class="text-muted">We recommend reviewing & resolving as many conflicts as
+                                        possible before publishing</small>
+                                </div>
+                            </div>
+
+                            <div class="notification-options mt-4">
+                                <h6>Notification Options</h6>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="notifyOption" id="noNotify"
+                                        value="none">
+                                    <label class="form-check-label" for="noNotify">Don't notify Employees</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="notifyOption"
+                                        id="notifyEmployees" value="employees">
+                                    <label class="form-check-label" for="notifyEmployees">Send Notifications to
+                                        Employees</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="notifyOption" id="notifyAll"
+                                        value="all" checked>
+                                    <label class="form-check-label" for="notifyAll">Send Notifications to Employees &
+                                        Managers</label>
+                                </div>
+                            </div>
+
+                            <div class="custom-message mt-3">
+                                <label class="form-label">Include custom message in Notification:</label>
+                                <textarea class="form-control" id="publish-custom-message" rows="3"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-success" id="confirmPublish">Publish Shifts</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
 
 
 </body>
