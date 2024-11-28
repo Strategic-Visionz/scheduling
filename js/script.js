@@ -30,6 +30,305 @@ window.HunkProScheduler = {
     tagsTableData: [],
     tagStatistics: {},
 
+    countUnpublishedShifts: function () {
+        const currentView = this.calendar.view;
+        const viewStart = new Date(`${currentView.activeStart.toISOString().split('T')[0]}T00:00:00Z`);
+        const viewEnd = new Date(`${currentView.activeEnd.toISOString().split('T')[0]}T23:59:59.999Z`);
+        const adjustedEndDate = new Date(viewEnd.getTime() - 24 * 60 * 60 * 1000);
+
+        const startDateStr = viewStart.toISOString().split('T')[0];
+        const endDateStr = adjustedEndDate.toISOString().split('T')[0];
+
+        // Initialize counters
+        const counts = {
+            notPublished: 0,
+            rePublish: 0,
+            total: 0
+        };
+
+        // Filter shifts within current view
+        this.shifts.forEach(shift => {
+            const shiftDate = new Date(shift.start);
+            if (shiftDate >= viewStart && shiftDate < adjustedEndDate) {
+                switch (shift.extendedProps.publishStatus) {
+                    case 'Not Published':
+                        counts.notPublished++;
+                        counts.total++;
+                        break;
+                    case 'Re-Publish':
+                        counts.rePublish++;
+                        counts.total++;
+                        break;
+                }
+            }
+        });
+
+        return counts;
+    },
+
+    updatePublishButton: function (counts) {
+        const publishButton = this.calendar.el.querySelector('.fc-publish-button');
+        if (publishButton) {
+            publishButton.innerHTML = `Publish <span class="publish-count">${counts.total}</span>`;
+        }
+    },
+
+    showPublishDialog: async function () {
+        const modal = document.getElementById('hunkpro-publish-modal');
+        const statsLoader = modal.querySelector('.stats-loader');
+        const statsContent = modal.querySelector('.stats-content');
+        const dateRange = modal.querySelector('#publish-date-range');
+        const confirmButton = modal.querySelector('#confirmPublish');
+
+        const currentView = this.calendar.view;
+        const viewStart = new Date(`${currentView.activeStart.toISOString().split('T')[0]}T00:00:00Z`);
+        const viewEnd = new Date(`${currentView.activeEnd.toISOString().split('T')[0]}T23:59:59.999Z`);
+        const adjustedEndDate = new Date(viewEnd.getTime() - 24 * 60 * 60 * 1000);
+
+        const startDateStr = viewStart.toISOString().split('T')[0];
+        const endDateStr = adjustedEndDate.toISOString().split('T')[0];
+
+        dateRange.textContent = `${startDateStr} to ${endDateStr}`;
+
+        // Show modal
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+
+        // Show loader, hide content, disable publish button
+        statsLoader.classList.remove('chhj-hide');
+        statsContent.classList.add('chhj-hide');
+        confirmButton.disabled = true;
+        confirmButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Please wait...';
+
+        try {
+            // Refresh events
+            await this.refreshEvents();
+
+            // Get counts using the updated method
+            const counts = this.countUnpublishedShifts();
+
+            // Update counts in modal
+            modal.querySelector('#publishCount').textContent = counts.notPublished;
+            modal.querySelector('#republishCount').textContent = counts.rePublish;
+            modal.querySelector('#conflictsCount').textContent = '0'; // Replace with actual conflict detection
+
+            // Show content, hide loader, enable and restore publish button
+            statsLoader.classList.add('chhj-hide');
+            statsContent.classList.remove('chhj-hide');
+            confirmButton.disabled = false;
+            confirmButton.textContent = 'Publish Shifts';
+
+        } catch (error) {
+            console.error('Error refreshing events:', error);
+            // Handle error - show error message in modal
+            statsLoader.classList.add('chhj-hide');
+            statsContent.classList.remove('chhj-hide');
+            confirmButton.disabled = false;
+            confirmButton.textContent = 'Publish Shifts';
+
+            await Swal.fire({
+                title: 'Error',
+                text: 'Failed to refresh shift data. Please try again.',
+                icon: 'error'
+            });
+        }
+
+        // Setup publish button handler
+        confirmButton.onclick = () => this.handlePublishConfirm(bsModal);
+    },
+
+    handlePublishConfirm: async function (modalInstance) {
+        try {
+            const currentView = this.calendar.view;
+            const viewStart = new Date(`${currentView.activeStart.toISOString().split('T')[0]}T00:00:00Z`);
+            const viewEnd = new Date(`${currentView.activeEnd.toISOString().split('T')[0]}T23:59:59.999Z`);
+            const adjustedEndDate = new Date(viewEnd.getTime() - 24 * 60 * 60 * 1000);
+
+            // Get all unpublished shifts in current view
+            const shiftsToPublish = this.shifts.filter(shift => {
+                const shiftDate = new Date(shift.start);
+                return shiftDate >= viewStart &&
+                    shiftDate < adjustedEndDate &&
+                    ['Not Published', 'Re-Publish'].includes(shift.extendedProps.publishStatus);
+            });
+
+            if (shiftsToPublish.length === 0) {
+                await Swal.fire({
+                    title: 'No Shifts to Publish',
+                    text: 'There are no unpublished shifts in the current view.',
+                    icon: 'info'
+                });
+                return;
+            }
+
+            // Show confirmation dialog
+            const confirmResult = await Swal.fire({
+                title: 'Publish Shifts',
+                text: `Are you sure you want to publish ${shiftsToPublish.length} shifts?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#158E52',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, publish shifts'
+            });
+
+            if (!confirmResult.isConfirmed) return;
+
+            // Close the publish modal
+            modalInstance.hide();
+
+            // Create and maintain an error log
+            const errorLog = [];
+            let currentShift = 0;
+            let processingCancelled = false;
+
+            const swalContent = document.createElement('div');
+            swalContent.className = 'swal2-content';
+            swalContent.innerHTML = `
+                <div class="publish-progress" style="margin-bottom: 1rem;">
+                    Publishing ${currentShift + 1} of ${shiftsToPublish.length}
+                </div>
+                <progress class="swal2-progress-steps" value="0" max="100" style="width: 100%; margin-bottom: 1rem;"></progress>
+                <div class="publish-errors" style="color: #dc3545; text-align: left; font-size: 0.9em; max-height: 100px; overflow-y: auto; display: none;">
+                </div>
+            `;
+
+            await Swal.fire({
+                title: 'Publishing Shifts',
+                html: swalContent,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                allowEnterKey: false,
+                showCancelButton: true,
+                cancelButtonText: 'Stop Processing',
+                showConfirmButton: false,
+                didOpen: async (popup) => {
+                    const progressBar = popup.querySelector('.swal2-progress-steps');
+                    const progressText = popup.querySelector('.publish-progress');
+                    const errorContainer = popup.querySelector('.publish-errors');
+
+                    const updateProgress = () => {
+                        const progress = (currentShift / shiftsToPublish.length) * 100;
+                        progressBar.value = progress;
+                        progressText.textContent = `Publishing ${currentShift + 1} of ${shiftsToPublish.length}`;
+                    };
+
+                    const updateErrorDisplay = (error) => {
+                        errorContainer.style.display = 'block';
+                        errorContainer.innerHTML = errorLog.map(err =>
+                            `<div style="margin-bottom: 0.5rem;">
+                                <strong>Error with shift ${err.shiftId}:</strong> ${err.message}
+                            </div>`
+                        ).join('');
+                    };
+
+                    // Process each shift
+                    for (const shift of shiftsToPublish) {
+                        if (processingCancelled) break;
+
+                        currentShift++;
+                        updateProgress();
+
+                        try {
+                            await this.updateShiftPublishStatus(shift.id);
+
+                            // Update local data and UI without refetching
+                            const calendarEvent = this.calendar.getEventById(shift.id);
+                            if (calendarEvent) {
+                                calendarEvent.setExtendedProp('publishStatus', 'Published');
+                                calendarEvent.setProp('title', calendarEvent.title);
+                            }
+                        } catch (error) {
+                            console.error('Error publishing shift:', error);
+                            errorLog.push({
+                                shiftId: shift.id,
+                                message: error.message || 'Failed to publish shift'
+                            });
+                            updateErrorDisplay();
+                        }
+                    }
+
+                    // Final handling
+                    if (errorLog.length > 0) {
+                        await Swal.fire({
+                            title: 'Publishing Complete with Errors',
+                            html: `
+                                <div style="text-align: left;">
+                                    <p>Published ${shiftsToPublish.length - errorLog.length} of ${shiftsToPublish.length} shifts.</p>
+                                    <p>Failed to publish ${errorLog.length} shifts:</p>
+                                    <div style="max-height: 200px; overflow-y: auto; margin-top: 1rem;">
+                                        ${errorLog.map(err =>
+                                                `<div style="margin-bottom: 0.5rem; color: #dc3545;">
+                                                <strong>Shift ${err.shiftId}:</strong> ${err.message}
+                                            </div>`
+                                            ).join('')}
+                                    </div>
+                                </div>
+                            `,
+                            icon: 'warning'
+                        });
+                    } else if (!processingCancelled) {
+                        await Swal.fire({
+                            title: 'Success!',
+                            text: `Successfully published ${shiftsToPublish.length} shifts`,
+                            icon: 'success'
+                        });
+                    }
+
+                    // Always refresh events at the end
+                    await this.refreshEvents();
+                },
+                willClose: () => {
+                    processingCancelled = true;
+                }
+            });
+
+        } catch (error) {
+            console.error('Error in publish process:', error);
+            await Swal.fire({
+                title: 'Error',
+                text: 'Failed to complete the publishing process. Please try again.',
+                icon: 'error'
+            });
+            await this.refreshEvents();
+        }
+    },
+
+    updateShiftPublishStatus: function (shiftId) {
+
+        // Simulate error for specific shifts (e.g., every third shift)
+        // if (parseInt(shiftId) % 3 === 0) {
+            // return new Promise((resolve, reject) => {
+            //     reject(new Error(`Simulated error for shift ${shiftId}: Server timeout`));
+            // });
+        // }
+
+        const form = new FormData();
+        form.append('field_478', 'Published');
+
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: `https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records/${shiftId}`,
+                method: "POST",
+                timeout: 0,
+                headers: {
+                    "X-Tadabase-App-id": this.tb_app_id,
+                    "X-Tadabase-App-Key": this.tb_app_key,
+                    "X-Tadabase-App-Secret": this.tb_app_secret
+                },
+                data: form,
+                processData: false,
+                contentType: false,
+                success: function (response) {
+                    resolve(response);
+                },
+                error: function (error) {
+                    reject(error);
+                }
+            });
+        });
+    },
+
     // Process and store tag statistics when processing shifts
     processTagStatistics: function (date) {
         const dateStr = new Date(date).toISOString().split('T')[0];
@@ -118,8 +417,8 @@ window.HunkProScheduler = {
                         Service Categories
                     </h6>
                     ${hasServiceCategories ? Object.entries(stats.serviceCategories)
-                                .filter(([category]) => category !== 'Uncategorized') // Filter out Uncategorized
-                                .map(([category, data]) => `
+                .filter(([category]) => category !== 'Uncategorized') // Filter out Uncategorized
+                .map(([category, data]) => `
                             <div class="category-group" style="margin-bottom: 12px;">
                                 <div class="category-header" style="color: var(--chhj-orange); font-weight: 500; margin-bottom: 4px;">
                                     ${category} (${data.total})
@@ -315,7 +614,7 @@ window.HunkProScheduler = {
                         const parsedData = JSON.parse(data);
                         // Store only the items array from the response
                         this.tagsTableData = parsedData.items || [];
-                        console.log('Tags data loaded:', this.tagsTableData);
+                        // console.log('Tags data loaded:', this.tagsTableData);
                         resolve(this.tagsTableData);
                     } catch (error) {
                         console.error('Error parsing tags data:', error);
@@ -459,7 +758,7 @@ window.HunkProScheduler = {
         const startDate = viewStart.toISOString().split('T')[0];
         const endDate = viewEnd.toISOString().split('T')[0];
 
-        console.log(`fetchSchedules ${startDate} ${endDate}`);
+        // console.log(`fetchSchedules ${startDate} ${endDate}`);
 
         // Define the mapping between position types and CSS classes
         const positionClassMap = {
@@ -506,7 +805,7 @@ window.HunkProScheduler = {
 
                             // Get the CSS class based on position name
                             const cssClass = positionClassMap[positionName] || 'hunkpro-shift-default';
-                            console.log("fetchSchedules ::: item ::: ", item);
+                            // console.log("fetchSchedules ::: item ::: ", item);
                             // Ensure we have valid resourceId
                             const resourceId = Array.isArray(item.field_58) ? item.field_58[0] : item.field_58;
                             if (!resourceId) {
@@ -562,7 +861,7 @@ window.HunkProScheduler = {
         const startDate = bufferStart.toISOString().split('T')[0];
         const endDate = bufferEnd.toISOString().split('T')[0];
 
-        console.log(`fetchAvailability ${startDate} ${endDate}`);
+        // console.log(`fetchAvailability ${startDate} ${endDate}`);
 
         const classMap = this.availabilityClassMap;
 
@@ -634,7 +933,7 @@ window.HunkProScheduler = {
         const startDate = bufferStart.toISOString().split('T')[0];
         const endDate = bufferEnd.toISOString().split('T')[0];
 
-        console.log(`fetchRegularDayOffs ${startDate} ${endDate}`);
+        // console.log(`fetchRegularDayOffs ${startDate} ${endDate}`);
 
         // Helper function to make API call
         const makeApiCall = async () => {
@@ -799,6 +1098,11 @@ window.HunkProScheduler = {
             form.append('field_479', shift.notes); // Notes
         }
 
+        // Add publish status to the update
+        if (shift.publishStatus) {
+            form.append('field_478', shift.publishStatus); // Publish Status
+        }
+
         // Store reference to 'this' for use in callback
         const self = this;
 
@@ -957,7 +1261,7 @@ window.HunkProScheduler = {
                 await new Promise(resolve => setTimeout(resolve, this.REFRESH_COOLDOWN));
             }
 
-            console.log(`Refreshing events... (${isInitialLoad ? 'initial load' : 'update'})`);
+            // console.log(`Refreshing events... (${isInitialLoad ? 'initial load' : 'update'})`);
 
             // Use the most recently requested dates instead of current view dates
             const viewStart = this._lastRequestedStart || this.calendar.view.activeStart;
@@ -1072,7 +1376,7 @@ window.HunkProScheduler = {
             headerToolbar: {
                 left: 'today prev,next',
                 center: 'title',
-                right: 'copyWeek refresh'
+                right: 'publish copyWeek refresh'
             },
 
 
@@ -1093,6 +1397,12 @@ window.HunkProScheduler = {
                     click: () => {
                         // console.log("Click copyWeek");
                         this.showCopyWeekDialog();
+                    }
+                },
+                publish: {
+                    text: 'Publish',
+                    click: () => {
+                        this.showPublishDialog();
                     }
                 }
             },
@@ -1122,7 +1432,7 @@ window.HunkProScheduler = {
                         // });
 
                         this._lastViewStart = dateInfo.start;
-                        console.log('refresh events from dataSet()');
+                        // console.log('refresh events from dataSet()');
                         await this.refreshEvents();
                     }
                 } catch (error) {
@@ -1196,8 +1506,8 @@ window.HunkProScheduler = {
 
                     const statusInfo = getStatusIconInfo(publishStatus);
 
-                    console.log('this.tagsTableData', this.tagsTableData);
-                    console.log('tags', tags);
+                    // console.log('this.tagsTableData', this.tagsTableData);
+                    // console.log('tags', tags);
                     const processedTags = tags
                         .map(tag => {
                             // 
@@ -1207,13 +1517,13 @@ window.HunkProScheduler = {
                                 tag.id === t.id
                             );
 
-                            console.log(`Tag Data :`, tagData);
+                            // console.log(`Tag Data :`, tagData);
 
-                            console.log(`Tag ID: ${tag.id}`, {
-                                id: tag.id,
-                                label: tag.val,
-                                type: tagData?.field_63?.toLowerCase() || '' // 'Tier' or 'Resource'
-                            });
+                            // console.log(`Tag ID: ${tag.id}`, {
+                            //     id: tag.id,
+                            //     label: tag.val,
+                            //     type: tagData?.field_63?.toLowerCase() || '' // 'Tier' or 'Resource'
+                            // });
 
                             if (tag) {
                                 return {
@@ -1929,12 +2239,18 @@ window.HunkProScheduler = {
                     "Y-m-d"
                 );
 
+                // Get current publish status from event
+                let publishStatus = event.extendedProps.publishStatus || 'Not Published';
+                // if currently published, make sure to tag as Re-Publish
+                publishStatus = publishStatus === 'Published' ? 'Re-Publish' : publishStatus
+
                 await this.updateShift({
                     id: event?.id || '',
                     date: selectedDate,
                     position: $('#hunkpro-shift-position').val() || '',
                     tags: tagIds,
-                    notes: notesInput
+                    notes: notesInput,
+                    publishStatus: publishStatus
                 });
             }
 
@@ -1993,10 +2309,17 @@ window.HunkProScheduler = {
                 resourceId: event.getResources()[0].id,
                 start: event.startStr
             };
+
+            // Get current publish status from event
+            let publishStatus = event.extendedProps.publishStatus || 'Not Published';
+            // if currently published, make sure to tag as Re-Publish
+            publishStatus = publishStatus === 'Published' ? 'Re-Publish' : publishStatus
+
             this.updateShift({
                 id: event?.id || '',
                 date: event?.startStr || '',
-                position: event?.extendedProps?.positionId?.[0] || ''
+                position: event?.extendedProps?.positionId?.[0] || '',
+                publishStatus
             });
         }
         this.updateAllCounts();
@@ -2038,8 +2361,11 @@ window.HunkProScheduler = {
         // Process tag statistics for each day in the view
         for (let date = new Date(viewStart); date < viewEnd; date.setDate(date.getDate() + 1)) {
             this.processTagStatistics(date);
-            console.log(`Tag Statistics ${date} ::: `, this.tagStatistics);
+            // console.log(`Tag Statistics ${date} ::: `, this.tagStatistics);
         }
+
+        const unpublishedCount = this.countUnpublishedShifts();
+        this.updatePublishButton(unpublishedCount);
 
         // Update resource shift counts
         this.calendar.getResources().forEach(resource => {
@@ -2261,5 +2587,5 @@ window.HunkProScheduler = {
 
 // Initialize the scheduler
 document.addEventListener('DOMContentLoaded', function () {
-    window.HunkProScheduler.init();//
+    window.HunkProScheduler.init();
 });
