@@ -200,7 +200,7 @@ window.HunkProScheduler = {
                 allowEscapeKey: false,
                 allowEnterKey: false,
                 showCancelButton: true,
-                cancelButtonText: 'Stop Processing',
+                // cancelButtonText: 'Stop Processing',
                 showConfirmButton: false,
                 didOpen: async (popup) => {
                     const progressBar = popup.querySelector('.swal2-progress-steps');
