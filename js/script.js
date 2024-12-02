@@ -186,7 +186,7 @@ window.HunkProScheduler = {
             swalContent.className = 'swal2-content';
             swalContent.innerHTML = `
                 <div class="publish-progress" style="margin-bottom: 1rem;">
-                    Publishing ${currentShift + 1} of ${shiftsToPublish.length}
+                    Publishing ${currentShift} of ${shiftsToPublish.length}
                 </div>
                 <progress class="swal2-progress-steps" value="0" max="100" style="width: 100%; margin-bottom: 1rem;"></progress>
                 <div class="publish-errors" style="color: #dc3545; text-align: left; font-size: 0.9em; max-height: 100px; overflow-y: auto; display: none;">
@@ -210,7 +210,7 @@ window.HunkProScheduler = {
                     const updateProgress = () => {
                         const progress = (currentShift / shiftsToPublish.length) * 100;
                         progressBar.value = progress;
-                        progressText.textContent = `Publishing ${currentShift + 1} of ${shiftsToPublish.length}`;
+                        progressText.textContent = `Publishing ${currentShift} of ${shiftsToPublish.length}`;
                     };
 
                     const updateErrorDisplay = (error) => {
@@ -258,10 +258,10 @@ window.HunkProScheduler = {
                                     <p>Failed to publish ${errorLog.length} shifts:</p>
                                     <div style="max-height: 200px; overflow-y: auto; margin-top: 1rem;">
                                         ${errorLog.map(err =>
-                                                `<div style="margin-bottom: 0.5rem; color: #dc3545;">
+                                `<div style="margin-bottom: 0.5rem; color: #dc3545;">
                                                 <strong>Shift ${err.shiftId}:</strong> ${err.message}
                                             </div>`
-                                            ).join('')}
+                            ).join('')}
                                     </div>
                                 </div>
                             `,
@@ -298,9 +298,9 @@ window.HunkProScheduler = {
 
         // Simulate error for specific shifts (e.g., every third shift)
         // if (parseInt(shiftId) % 3 === 0) {
-            // return new Promise((resolve, reject) => {
-            //     reject(new Error(`Simulated error for shift ${shiftId}: Server timeout`));
-            // });
+        // return new Promise((resolve, reject) => {
+        //     reject(new Error(`Simulated error for shift ${shiftId}: Server timeout`));
+        // });
         // }
 
         const form = new FormData();
@@ -1400,7 +1400,7 @@ window.HunkProScheduler = {
                     }
                 },
                 publish: {
-                    text: 'Publish',
+                    text: '', // removed the "Publish" text.. this is taken cared of by the updatePublishButton
                     click: () => {
                         this.showPublishDialog();
                     }
@@ -1603,7 +1603,448 @@ window.HunkProScheduler = {
         this.calendar.on('eventRemove', updateOnChange);
     },
 
-    showCopyWeekDialog: function () {
+    showCopyWeekDialog: async function () {
+        const modal = document.getElementById('hunkpro-copy-week-modal');
+        const statsLoader = modal.querySelector('.stats-loader');
+        const statsContent = modal.querySelector('.stats-content');
+        const dateRange = modal.querySelector('#copy-date-range');
+        const confirmButton = modal.querySelector('#confirmCopy');
+        const progressSection = modal.querySelector('.copy-progress-section');
+
+        // Get current and next week dates
+        const currentView = this.calendar.view;
+        const viewStart = new Date(currentView.activeStart);
+        const viewEnd = new Date(currentView.activeEnd);
+        const adjustedEndDate = new Date(viewEnd.getTime() - 24 * 60 * 60 * 1000);
+
+        // Calculate next week dates
+        const nextWeekStart = new Date(viewStart);
+        nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+        const nextWeekEnd = new Date(adjustedEndDate);
+        nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
+
+        // Format dates for display
+        const formatDate = (date) => {
+            return date.toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+            });
+        };
+
+        dateRange.innerHTML = `
+            <strong>From:</strong> ${formatDate(viewStart)} - ${formatDate(adjustedEndDate)}<br>
+            <strong>To:</strong> ${formatDate(nextWeekStart)} - ${formatDate(nextWeekEnd)}
+        `;
+
+        // Show modal
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+
+        // Show loader, hide content
+        statsLoader.classList.remove('chhj-hide');
+        statsContent.classList.add('chhj-hide');
+        progressSection.classList.add('chhj-hide');
+        confirmButton.disabled = true;
+
+        try {
+            // Refresh events to ensure we have latest data
+            await this.refreshEvents();
+
+            // Count shifts in current week view
+            const shiftsToCount = this.countShiftsToCopy();
+            // const existingShifts = await this.countExistingShiftsInTargetWeek(nextWeekStart, nextWeekEnd);
+
+            // Update stats in modal
+            modal.querySelector('#shiftsCount').textContent = shiftsToCount;
+            // modal.querySelector('#existingCount').textContent = existingShifts;
+
+            // Show content, hide loader
+            statsLoader.classList.add('chhj-hide');
+            statsContent.classList.remove('chhj-hide');
+            confirmButton.disabled = false;
+
+        } catch (error) {
+            console.error('Error preparing copy dialog:', error);
+            statsLoader.classList.add('chhj-hide');
+            statsContent.classList.remove('chhj-hide');
+            await Swal.fire({
+                title: 'Error',
+                text: 'Failed to prepare shift data. Please try again.',
+                icon: 'error'
+            });
+        }
+
+        // Setup confirm button handler
+        confirmButton.onclick = () => this.handleCopyConfirm(bsModal);
+    },
+
+    countShiftsToCopy: function () {
+        const viewStart = new Date(`${this.calendar.view.activeStart.toISOString().split('T')[0]}T00:00:00Z`);
+        const viewEnd = new Date(`${this.calendar.view.activeEnd.toISOString().split('T')[0]}T23:59:59.999Z`);
+        const adjustedEndDate = new Date(viewEnd.getTime() - 24 * 60 * 60 * 1000);
+
+        const shiftsToCopy = this.shifts.filter(shift => {
+            const shiftDate = new Date(`${shift.start}T00:00:00Z`);
+            return shiftDate >= viewStart && shiftDate <= adjustedEndDate;
+        });
+
+        return shiftsToCopy.length;
+    },
+
+    countExistingShiftsInTargetWeek: function (nextWeekStart, nextWeekEnd) {
+        // Use local shifts data
+        return this.shifts.filter(shift => {
+            const shiftDate = new Date(shift.start);
+            return shiftDate >= nextWeekStart && shiftDate <= nextWeekEnd;
+        }).length;
+    },
+
+    handleCopyConfirm: async function (modalInstance) {
+        const modal = document.getElementById('hunkpro-copy-week-modal');
+        const progressSection = modal.querySelector('.copy-progress-section');
+        const confirmButton = modal.querySelector('#confirmCopy');
+        const errorLog = modal.querySelector('#error-log');
+        const cancelButton = modal.querySelector('.btn-secondary');
+        const closeButton = modal.querySelector('.btn-close');
+        let isCopying = false;
+
+        try {
+            // Get shifts to copy
+            const viewStart = new Date(`${this.calendar.view.activeStart.toISOString().split('T')[0]}T00:00:00Z`);
+            const viewEnd = new Date(`${this.calendar.view.activeEnd.toISOString().split('T')[0]}T23:59:59.999Z`);
+            const adjustedEndDate = new Date(viewEnd.getTime() - 24 * 60 * 60 * 1000);
+
+            const shiftsToCopy = this.shifts.filter(shift => {
+                const shiftDate = new Date(`${shift.start}T00:00:00Z`);
+                return shiftDate >= viewStart && shiftDate <= adjustedEndDate;
+            });
+
+            if (shiftsToCopy.length === 0) {
+                await Swal.fire({
+                    title: 'No Shifts to Copy',
+                    text: 'There are no shifts in the current week to copy.',
+                    icon: 'info'
+                });
+                return;
+            }
+
+            // Show confirmation
+            const confirmResult = await Swal.fire({
+                title: 'Copy Shifts',
+                text: `Are you sure you want to copy ${shiftsToCopy.length} shifts to next week?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#158E52',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, copy shifts'
+            });
+
+            if (!confirmResult.isConfirmed) return;
+
+            // Prevent modal from closing during copy process
+            modalInstance._config.backdrop = 'static';
+            modalInstance._config.keyboard = false;
+            modal.setAttribute('data-bs-backdrop', 'static');
+            modal.setAttribute('data-bs-keyboard', 'false');
+
+            // Disable close and cancel buttons
+            closeButton.disabled = true;
+            cancelButton.disabled = true;
+            isCopying = true;
+
+            // Prepare for copying
+            progressSection.classList.remove('chhj-hide');
+            confirmButton.disabled = true;
+            errorLog.classList.add('chhj-hide');
+
+            // Update progress elements
+            const processedCount = modal.querySelector('#processedCount');
+            const totalCount = modal.querySelector('#totalCount');
+            const progressBar = modal.querySelector('.progress-bar');
+
+            totalCount.textContent = shiftsToCopy.length;
+            processedCount.textContent = '0';
+
+            // Track failed copies
+            const failedShifts = [];
+            let currentShift = 0;
+
+            // Process each shift
+            for (const shift of shiftsToCopy) {
+                try {
+                    currentShift++;
+                    // Update progress
+                    processedCount.textContent = currentShift;
+                    const progress = (currentShift / shiftsToCopy.length) * 100;
+                    progressBar.style.width = `${progress}%`;
+
+                    // Calculate new date (7 days later)
+                    const newDate = new Date(shift.start);
+                    newDate.setDate(newDate.getDate() + 7);
+
+                    // Prepare form data for new shift
+                    const form = new FormData();
+                    form.append('field_58', shift.resourceId);
+                    form.append('field_60', newDate.toISOString().split('T')[0]);
+                    form.append('field_59', shift.positionId[0]);
+                    form.append('field_478', 'Not Published');
+
+                    if (shift.extendedProps.tags) {
+                        form.append('field_477', shift.extendedProps.tags.join(","));
+                    }
+
+                    if (shift.extendedProps.notes) {
+                        form.append('field_479', shift.extendedProps.notes);
+                    }
+
+                    // Add the shift
+                    await $.ajax({
+                        url: 'https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records',
+                        method: "POST",
+                        headers: {
+                            "X-Tadabase-App-id": this.tb_app_id,
+                            "X-Tadabase-App-Key": this.tb_app_key,
+                            "X-Tadabase-App-Secret": this.tb_app_secret
+                        },
+                        data: form,
+                        processData: false,
+                        contentType: false
+                    });
+
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+
+                } catch (error) {
+                    console.error('Error copying shift:', error);
+                    failedShifts.push({
+                        shift: shift,
+                        error: error.message || 'Failed to copy shift'
+                    });
+                }
+            }
+
+            isCopying = false;
+            // Re-enable close and cancel buttons
+            closeButton.disabled = false;
+            cancelButton.disabled = false;
+
+            // Reset modal config
+            modalInstance._config.backdrop = true;
+            modalInstance._config.keyboard = true;
+            modal.removeAttribute('data-bs-backdrop');
+            modal.removeAttribute('data-bs-keyboard');
+
+            // Show results
+            if (failedShifts.length > 0) {
+                errorLog.classList.remove('chhj-hide');
+                const errorList = errorLog.querySelector('.error-list');
+                errorList.innerHTML = failedShifts.map(failure => `
+    <div class="error-item">
+        Failed to copy shift for ${failure.shift.resourceId}: ${failure.error}
+    </div>
+`).join('');
+
+                const retryBtn = errorLog.querySelector('#retryFailedBtn');
+                retryBtn.onclick = () => this.retryFailedShifts(failedShifts);
+
+                await Swal.fire({
+                    title: 'Copying Complete with Errors',
+                    html: `
+        <div style="text-align: left;">
+            <p>Copied ${shiftsToCopy.length - failedShifts.length} of ${shiftsToCopy.length} shifts.</p>
+            <p>Failed to copy ${failedShifts.length} shifts.</p>
+        </div>
+    `,
+                    icon: 'warning'
+                });
+            } else {
+                await Swal.fire({
+                    title: 'Success!',
+                    text: `Successfully copied ${shiftsToCopy.length} shifts`,
+                    icon: 'success'
+                });
+                modalInstance.hide();
+            }
+
+            // Refresh events
+            await this.refreshEvents();
+
+        } catch (error) {
+            console.error('Error in copy process:', error);
+            await Swal.fire({
+                title: 'Error',
+                text: 'Failed to complete the copying process. Please try again.',
+                icon: 'error'
+            });
+
+            // Make sure to re-enable buttons and reset modal state
+            if (isCopying) {
+                closeButton.disabled = false;
+                cancelButton.disabled = false;
+                modalInstance._config.backdrop = true;
+                modalInstance._config.keyboard = true;
+                modal.removeAttribute('data-bs-backdrop');
+                modal.removeAttribute('data-bs-keyboard');
+            }
+        }
+    },
+
+    retryFailedShifts: async function (failedShifts) {
+        const modal = document.getElementById('hunkpro-copy-week-modal');
+        const progressSection = modal.querySelector('.copy-progress-section');
+        const errorLog = modal.querySelector('#error-log');
+        const retryBtn = errorLog.querySelector('#retryFailedBtn');
+
+        try {
+            // Show retry confirmation
+            const confirmResult = await Swal.fire({
+                title: 'Retry Failed Shifts',
+                text: `Attempt to copy ${failedShifts.length} failed shifts again?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#158E52',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Yes, retry shifts'
+            });
+
+            if (!confirmResult.isConfirmed) return;
+
+            // Disable retry button during process
+            retryBtn.disabled = true;
+            retryBtn.innerHTML = `
+                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                Retrying...
+            `;
+
+            // Update progress elements
+            const processedCount = modal.querySelector('#processedCount');
+            const totalCount = modal.querySelector('#totalCount');
+            const progressBar = modal.querySelector('.progress-bar');
+
+            totalCount.textContent = failedShifts.length;
+            processedCount.textContent = '0';
+            progressBar.style.width = '0%';
+
+            // Track new failures
+            const newFailures = [];
+            let currentShift = 0;
+
+            // Process each failed shift
+            for (const failedItem of failedShifts) {
+                try {
+                    currentShift++;
+
+                    // Update progress
+                    processedCount.textContent = currentShift;
+                    const progress = (currentShift / failedShifts.length) * 100;
+                    progressBar.style.width = `${progress}%`;
+
+                    // Calculate new date (7 days later)
+                    const newDate = new Date(failedItem.shift.start);
+                    newDate.setDate(newDate.getDate() + 7);
+
+                    // Prepare form data for new shift
+                    const form = new FormData();
+                    form.append('field_58', failedItem.shift.resourceId); // Employee/Resource ID
+                    form.append('field_60', newDate.toISOString().split('T')[0]); // New Date
+                    form.append('field_59', failedItem.shift.extendedProps.positionId[0]); // Position ID
+                    form.append('field_478', 'Not Published'); // Set as not published
+
+                    // Copy any tags if they exist
+                    if (failedItem.shift.extendedProps.tags) {
+                        form.append('field_477', failedItem.shift.extendedProps.tags);
+                    }
+
+                    // Copy notes if they exist
+                    if (failedItem.shift.extendedProps.notes) {
+                        form.append('field_479', failedItem.shift.extendedProps.notes);
+                    }
+
+                    // Add the shift
+                    await $.ajax({
+                        url: 'https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records',
+                        method: "POST",
+                        headers: {
+                            "X-Tadabase-App-id": this.tb_app_id,
+                            "X-Tadabase-App-Key": this.tb_app_key,
+                            "X-Tadabase-App-Secret": this.tb_app_secret
+                        },
+                        data: form,
+                        processData: false,
+                        contentType: false
+                    });
+
+                    // Wait 1 second before next shift
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+
+                } catch (error) {
+                    console.error('Error retrying shift:', error);
+                    newFailures.push({
+                        shift: failedItem.shift,
+                        error: error.message || 'Failed to copy shift'
+                    });
+                }
+            }
+
+            // Show results
+            if (newFailures.length > 0) {
+                // Update error log with new failures
+                const errorList = errorLog.querySelector('.error-list');
+                errorList.innerHTML = newFailures.map(failure => `
+                    <div class="error-item">
+                        Failed to copy shift for ${failure.shift.resourceId}: ${failure.error}
+                    </div>
+                `).join('');
+
+                await Swal.fire({
+                    title: 'Retry Complete with Errors',
+                    html: `
+                        <div style="text-align: left;">
+                            <p>Successfully copied ${failedShifts.length - newFailures.length} of ${failedShifts.length} failed shifts.</p>
+                            <p>${newFailures.length} shifts still failed to copy.</p>
+                        </div>
+                    `,
+                    icon: 'warning'
+                });
+
+                // Re-enable retry button for remaining failed shifts
+                retryBtn.disabled = false;
+                retryBtn.textContent = 'Retry Failed Shifts';
+
+                // Update failed shifts array for potential future retries
+                failedShifts.length = 0;
+                failedShifts.push(...newFailures);
+
+            } else {
+                // All retries successful
+                await Swal.fire({
+                    title: 'Success!',
+                    text: `Successfully copied all ${failedShifts.length} failed shifts`,
+                    icon: 'success'
+                });
+
+                // Hide error log since all successful
+                errorLog.classList.add('chhj-hide');
+            }
+
+            // Refresh events
+            await this.refreshEvents();
+
+        } catch (error) {
+            console.error('Error in retry process:', error);
+            await Swal.fire({
+                title: 'Error',
+                text: 'Failed to complete the retry process. Please try again.',
+                icon: 'error'
+            });
+
+            // Reset retry button
+            retryBtn.disabled = false;
+            retryBtn.textContent = 'Retry Failed Shifts';
+        }
+    },
+
+    showCopyWeekDialogV1: function () {
         const currentView = this.calendar.view;
         if (!currentView) {
             console.error('Calendar view not initialized');
@@ -1659,11 +2100,11 @@ window.HunkProScheduler = {
             Swal.fire({
                 title: 'Copy Week Schedule',
                 html: `
-        Do you want to copy schedules from<br>
-        <b>${currentWeekFormatted}</b><br>
-        to<br>
-        <b>${nextWeekFormatted}</b>?
-    `,
+                    Do you want to copy schedules from<br>
+                    <b>${currentWeekFormatted}</b><br>
+                    to<br>
+                    <b>${nextWeekFormatted}</b>?
+                `,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#158E52',
@@ -1671,7 +2112,7 @@ window.HunkProScheduler = {
                 confirmButtonText: 'Yes, copy schedules',
                 showLoaderOnConfirm: true,
                 preConfirm: () => {
-                    return this.copyWeekSchedules(weekStart, weekEnd)
+                    return this.copyWeekSchedulesV1(weekStart, weekEnd)
                         .catch(error => {
                             Swal.showValidationMessage(`Copy failed: ${error.message}`);
                             return false;
@@ -1689,8 +2130,7 @@ window.HunkProScheduler = {
         }
     },
 
-    // Updated copyWeekSchedules function with proper error handling and API interaction
-    copyWeekSchedules: async function (weekStart, weekEnd) {
+    copyWeekSchedulesV1: async function (weekStart, weekEnd) {
         if (!weekStart || !weekEnd) {
             throw new Error('Invalid date parameters');
         }

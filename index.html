@@ -163,6 +163,62 @@
             </div>
         </div>
 
+        <div id="hunkpro-copy-week-modal" class="modal fade" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Copy Week Schedule</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="copy-content">
+                            <h6>Copy schedules to next week</h6>
+                            <div id="copy-date-range" class="mb-3"></div>
+
+                            <div class="copy-stats">
+                                <div class="stats-loader chhj-hide">
+                                    <div class="chhj-loader chhj-loader-segment"></div>
+                                    <p>Analyzing shifts to copy...</p>
+                                </div>
+                                <div class="stats-content">
+                                    <p>Shifts to copy: <span id="shiftsCount">0</span></p>
+                                    <!-- <p>Target week shifts: <span id="existingCount">0</span></p> -->
+                                </div>
+                                <div class="validation-message mt-2">
+                                    <small class="text-muted">All shifts will be copied with 'Not Published'
+                                        status</small>
+                                </div>
+                            </div>
+
+                            <!-- Progress Section (Initially Hidden) -->
+                            <div class="copy-progress-section mt-4 chhj-hide">
+                                <h6>Copy Progress</h6>
+                                <div class="progress-stats">
+                                    <p>Processing: <span id="processedCount">0</span> of <span id="totalCount">0</span>
+                                    </p>
+                                    <div class="progress">
+                                        <div class="progress-bar bg-success" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                                <div id="error-log" class="mt-3 chhj-hide">
+                                    <h6 class="text-danger">Failed Shifts</h6>
+                                    <div class="error-list"></div>
+                                    <button type="button" class="btn btn-outline-danger btn-sm mt-2"
+                                        id="retryFailedBtn">
+                                        Retry Failed Shifts
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-success" id="confirmCopy">Copy Shifts</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
 
