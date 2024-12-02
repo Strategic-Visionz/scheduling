@@ -1789,6 +1789,8 @@ window.HunkProScheduler = {
                     form.append('field_60', newDate.toISOString().split('T')[0]);
                     form.append('field_59', shift.positionId[0]);
                     form.append('field_478', 'Not Published');
+                    
+                    console.log("handleCopyConfirm ::: form",form);
 
                     if (shift.extendedProps.tags) {
                         form.append('field_477', shift.extendedProps.tags.join(","));
@@ -1812,7 +1814,7 @@ window.HunkProScheduler = {
                         contentType: false
                     });
 
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    await new Promise(resolve => setTimeout(resolve, 800));
 
                 } catch (error) {
                     console.error('Error copying shift:', error);
@@ -1839,10 +1841,10 @@ window.HunkProScheduler = {
                 errorLog.classList.remove('chhj-hide');
                 const errorList = errorLog.querySelector('.error-list');
                 errorList.innerHTML = failedShifts.map(failure => `
-    <div class="error-item">
-        Failed to copy shift for ${failure.shift.resourceId}: ${failure.error}
-    </div>
-`).join('');
+                    <div class="error-item">
+                        Failed to copy shift for ${failure.shift.resourceId}: ${failure.error}
+                    </div>
+                `).join('');
 
                 const retryBtn = errorLog.querySelector('#retryFailedBtn');
                 retryBtn.onclick = () => this.retryFailedShifts(failedShifts);
@@ -1850,11 +1852,11 @@ window.HunkProScheduler = {
                 await Swal.fire({
                     title: 'Copying Complete with Errors',
                     html: `
-        <div style="text-align: left;">
-            <p>Copied ${shiftsToCopy.length - failedShifts.length} of ${shiftsToCopy.length} shifts.</p>
-            <p>Failed to copy ${failedShifts.length} shifts.</p>
-        </div>
-    `,
+                        <div style="text-align: left;">
+                            <p>Copied ${shiftsToCopy.length - failedShifts.length} of ${shiftsToCopy.length} shifts.</p>
+                            <p>Failed to copy ${failedShifts.length} shifts.</p>
+                        </div>
+                    `,
                     icon: 'warning'
                 });
             } else {
@@ -1894,6 +1896,11 @@ window.HunkProScheduler = {
         const progressSection = modal.querySelector('.copy-progress-section');
         const errorLog = modal.querySelector('#error-log');
         const retryBtn = errorLog.querySelector('#retryFailedBtn');
+        const closeButton = modal.querySelector('.btn-close');
+        const cancelButton = modal.querySelector('.btn-secondary');
+        let isRetrying = false;
+
+        console.log('failedShifts',failedShifts);
 
         try {
             // Show retry confirmation
@@ -1909,8 +1916,19 @@ window.HunkProScheduler = {
 
             if (!confirmResult.isConfirmed) return;
 
-            // Disable retry button during process
+            // Update modal state
+            const modalInstance = bootstrap.Modal.getInstance(modal);
+            modalInstance._config.backdrop = 'static';
+            modalInstance._config.keyboard = false;
+            modal.setAttribute('data-bs-backdrop', 'static');
+            modal.setAttribute('data-bs-keyboard', 'false');
+
+            // Disable buttons
+            closeButton.disabled = true;
+            cancelButton.disabled = true;
             retryBtn.disabled = true;
+            isRetrying = true;
+
             retryBtn.innerHTML = `
                 <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
                 Retrying...
@@ -1929,38 +1947,33 @@ window.HunkProScheduler = {
             const newFailures = [];
             let currentShift = 0;
 
+            
+
             // Process each failed shift
             for (const failedItem of failedShifts) {
                 try {
                     currentShift++;
-
-                    // Update progress
                     processedCount.textContent = currentShift;
                     const progress = (currentShift / failedShifts.length) * 100;
                     progressBar.style.width = `${progress}%`;
 
-                    // Calculate new date (7 days later)
                     const newDate = new Date(failedItem.shift.start);
                     newDate.setDate(newDate.getDate() + 7);
 
-                    // Prepare form data for new shift
                     const form = new FormData();
-                    form.append('field_58', failedItem.shift.resourceId); // Employee/Resource ID
-                    form.append('field_60', newDate.toISOString().split('T')[0]); // New Date
-                    form.append('field_59', failedItem.shift.extendedProps.positionId[0]); // Position ID
-                    form.append('field_478', 'Not Published'); // Set as not published
+                    form.append('field_58', failedItem.shift.resourceId);
+                    form.append('field_60', newDate.toISOString().split('T')[0]);
+                    form.append('field_59', failedItem.shift.positionId[0]);
+                    form.append('field_478', 'Not Published');
 
-                    // Copy any tags if they exist
                     if (failedItem.shift.extendedProps.tags) {
-                        form.append('field_477', failedItem.shift.extendedProps.tags);
+                        form.append('field_477', failedItem.shift.extendedProps.tags.join(","));
                     }
 
-                    // Copy notes if they exist
                     if (failedItem.shift.extendedProps.notes) {
                         form.append('field_479', failedItem.shift.extendedProps.notes);
                     }
 
-                    // Add the shift
                     await $.ajax({
                         url: 'https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records',
                         method: "POST",
@@ -1974,8 +1987,7 @@ window.HunkProScheduler = {
                         contentType: false
                     });
 
-                    // Wait 1 second before next shift
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    await new Promise(resolve => setTimeout(resolve, 800));
 
                 } catch (error) {
                     console.error('Error retrying shift:', error);
@@ -1986,9 +1998,17 @@ window.HunkProScheduler = {
                 }
             }
 
-            // Show results
+            isRetrying = false;
+            // Reset modal state
+            closeButton.disabled = false;
+            cancelButton.disabled = false;
+            modalInstance._config.backdrop = true;
+            modalInstance._config.keyboard = true;
+            modal.removeAttribute('data-bs-backdrop');
+            modal.removeAttribute('data-bs-keyboard');
+
             if (newFailures.length > 0) {
-                // Update error log with new failures
+                errorLog.classList.remove('chhj-hide');
                 const errorList = errorLog.querySelector('.error-list');
                 errorList.innerHTML = newFailures.map(failure => `
                     <div class="error-item">
@@ -2007,27 +2027,19 @@ window.HunkProScheduler = {
                     icon: 'warning'
                 });
 
-                // Re-enable retry button for remaining failed shifts
                 retryBtn.disabled = false;
                 retryBtn.textContent = 'Retry Failed Shifts';
-
-                // Update failed shifts array for potential future retries
                 failedShifts.length = 0;
                 failedShifts.push(...newFailures);
-
             } else {
-                // All retries successful
                 await Swal.fire({
                     title: 'Success!',
                     text: `Successfully copied all ${failedShifts.length} failed shifts`,
                     icon: 'success'
                 });
-
-                // Hide error log since all successful
                 errorLog.classList.add('chhj-hide');
             }
 
-            // Refresh events
             await this.refreshEvents();
 
         } catch (error) {
@@ -2038,7 +2050,16 @@ window.HunkProScheduler = {
                 icon: 'error'
             });
 
-            // Reset retry button
+            if (isRetrying) {
+                closeButton.disabled = false;
+                cancelButton.disabled = false;
+                const modalInstance = bootstrap.Modal.getInstance(modal);
+                modalInstance._config.backdrop = true;
+                modalInstance._config.keyboard = true;
+                modal.removeAttribute('data-bs-backdrop');
+                modal.removeAttribute('data-bs-keyboard');
+            }
+
             retryBtn.disabled = false;
             retryBtn.textContent = 'Retry Failed Shifts';
         }
