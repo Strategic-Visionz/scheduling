@@ -1083,3 +1083,156 @@
     color: #666;
     font-size: 11px;
 }
+
+/* Publish button styling */
+.fc-publish-button {
+    background-color: var(--chhj-green) !important;
+    border-color: var(--chhj-green) !important;
+    color: white !important;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.fc-publish-button:hover {
+    background-color: var(--chhj-green-border) !important;
+    border-color: var(--chhj-green-border) !important;
+}
+
+/* Publish modal styling */
+#hunkpro-publish-modal .publish-content {
+    padding: 1rem;
+}
+
+#hunkpro-publish-modal .publish-stats {
+    background-color: var(--chhj-green-light);
+    border: 1px solid var(--chhj-green-border);
+    border-radius: 4px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+#hunkpro-publish-modal .stats-loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+#hunkpro-publish-modal .stats-content p {
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--chhj-green);
+    font-weight: 500;
+}
+
+#hunkpro-publish-modal .notification-options {
+    border-top: 1px solid #dee2e6;
+    padding-top: 1rem;
+}
+
+#hunkpro-publish-modal .custom-message textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+#hunkpro-publish-modal .conflict-message {
+    font-style: italic;
+}
+
+/* Loader styling */
+#hunkpro-publish-modal .chhj-loader {
+    margin: 0 auto;
+}
+
+/* Counter badge styling */
+.publish-count {
+    background-color: white;
+    color: var(--chhj-green);
+    border-radius: 12px;
+    padding: 2px 6px;
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+/* Copy Week Modal Styles */
+#hunkpro-copy-week-modal .copy-content {
+    padding: 1rem;
+}
+
+#hunkpro-copy-week-modal .copy-stats {
+    background-color: var(--chhj-green-light);
+    border: 1px solid var(--chhj-green-border);
+    border-radius: 4px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+#hunkpro-copy-week-modal .stats-loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+#hunkpro-copy-week-modal .stats-content p {
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--chhj-green);
+    font-weight: 500;
+}
+
+#hunkpro-copy-week-modal .copy-progress-section {
+    border-top: 1px solid #dee2e6;
+    padding-top: 1rem;
+}
+
+#hunkpro-copy-week-modal .progress {
+    height: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+#hunkpro-copy-week-modal .error-list {
+    max-height: 150px;
+    overflow-y: auto;
+    font-size: 0.9rem;
+}
+
+#hunkpro-copy-week-modal .error-item {
+    padding: 0.5rem;
+    margin-bottom: 0.5rem;
+    border-left: 3px solid #dc3545;
+    background-color: #f8d7da;
+}
+
+#hunkpro-copy-week-modal .progress-stats {
+    font-size: 0.9rem;
+}
+
+#hunkpro-copy-week-modal .validation-message {
+    font-style: italic;
+}
+
+#hunkpro-copy-week-modal .chhj-loader {
+    margin: 0 auto;
+}
+
+/* Button states */
+#hunkpro-copy-week-modal .btn-success:disabled {
+    opacity: 0.65;
+}
+
+/* Animation for progress updates */
+@keyframes progressFade {
+    from {
+        opacity: 0.5;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.progress-update {
+    animation: progressFade 0.3s ease-in-out;
+}
