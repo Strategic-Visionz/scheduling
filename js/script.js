@@ -699,6 +699,28 @@ window.HunkProScheduler = {
 
             this.hideFullScreenLoader();
 
+            // Add in init after calendar initialization
+            $(document).on('change', '.filter-tag, .filter-position', () => {
+                this.applyFilters();
+            });
+
+            $(document).on('click', '.clear-tag-filters', () => {
+                $('.filter-tag').prop('checked', false);
+                this.applyFilters();
+            });
+
+            $(document).on('click', '.clear-position-filters', () => {
+                $('.filter-position').prop('checked', false);
+                this.applyFilters();
+            });
+
+            // Close dropdowns when clicking outside
+            $(document).on('click', (e) => {
+                if (!$(e.target).closest('.dropdown-menu, .fc-filterTag-button, .fc-filterPosition-button').length) {
+                    $('.dropdown-menu').removeClass('show');
+                }
+            });
+
 
 
         } catch (error) {
@@ -714,7 +736,7 @@ window.HunkProScheduler = {
     fetchEmployees: function () {
         return new Promise((resolve, reject) => {
             $.ajax({
-                "url": `https://api.tadabase.io/api/v1/data-tables/4MXQJdrZ6v/records?filters[items][0][field_id]=field_427&filters[items][0][operator]=contains_any&filters[items][0][val]=Truck Operations&filters[items][1][field_id]=status&filters[items][1][operator]=is&filters[items][1][val]=Active`,
+                "url": `https://api.tadabase.io/api/v1/data-tables/4MXQJdrZ6v/records?filters[items][0][field_id]=field_427&filters[items][0][operator]=contains_any&filters[items][0][val]=Truck Operations&filters[items][1][field_id]=status&filters[items][1][operator]=is&filters[items][1][val]=Active&limit=100&page=1`,
                 "method": "GET",
                 "timeout": 0,
                 "headers": {
@@ -1374,7 +1396,7 @@ window.HunkProScheduler = {
 
             // Simplified header toolbar
             headerToolbar: {
-                left: 'today prev,next',
+                left: 'today prev,next filterTag filterPosition',
                 center: 'title',
                 right: 'publish copyWeek refresh'
             },
@@ -1404,6 +1426,76 @@ window.HunkProScheduler = {
                     click: () => {
                         this.showPublishDialog();
                     }
+                },
+                filterTag: {
+                    text: 'Filter by Tag',
+                    click: (e) => {
+                        // Create and update counter span if it doesn't exist
+                        let button = e.currentTarget;
+                        let counter = button.querySelector('.filter-counter');
+                        if (!counter) {
+                            counter = document.createElement('span');
+                            counter.className = 'filter-counter';
+                            button.appendChild(counter);
+                        }
+
+                        const tagDropdown = $('#tag-filter-dropdown');
+                        const posDropdown = $('#position-filter-dropdown');
+
+                        // Close position dropdown if open
+                        posDropdown.removeClass('show');
+
+                        if (!tagDropdown.length) {
+                            const dropdown = $(`
+                                <div id="tag-filter-dropdown" class="dropdown-menu p-2" style="min-width: 250px">
+                                    <!-- Tags will be populated here -->
+                                </div>
+                            `).appendTo('body');
+                            this.updateTagFilters(dropdown);
+                        }
+                        const button$ = $(e.currentTarget);
+                        const dropdown = $('#tag-filter-dropdown');
+                        dropdown.css({
+                            top: button$.offset().top + button$.outerHeight(),
+                            left: button$.offset().left
+                        }).toggleClass('show');
+                        e.stopPropagation();
+                    }
+                },
+                filterPosition: {
+                    text: 'Filter by Position',
+                    click: (e) => {
+                        // Create and update counter span if it doesn't exist
+                        let button = e.currentTarget;
+                        let counter = button.querySelector('.filter-counter');
+                        if (!counter) {
+                            counter = document.createElement('span');
+                            counter.className = 'filter-counter';
+                            button.appendChild(counter);
+                        }
+
+                        const tagDropdown = $('#tag-filter-dropdown');
+                        const posDropdown = $('#position-filter-dropdown');
+
+                        // Close tag dropdown if open
+                        tagDropdown.removeClass('show');
+
+                        if (!posDropdown.length) {
+                            const dropdown = $(`
+                                <div id="position-filter-dropdown" class="dropdown-menu p-2" style="min-width: 250px">
+                                    <!-- Positions will be populated here -->
+                                </div>
+                            `).appendTo('body');
+                            this.updatePositionFilters(dropdown);
+                        }
+                        const button$ = $(e.currentTarget);
+                        const dropdown = $('#position-filter-dropdown');
+                        dropdown.css({
+                            top: button$.offset().top + button$.outerHeight(),
+                            left: button$.offset().left
+                        }).toggleClass('show');
+                        e.stopPropagation();
+                    }
                 }
             },
 
@@ -1419,21 +1511,38 @@ window.HunkProScheduler = {
                 }
             },
 
-            // Core event handlers
-            // Also update the datesSet handler in initializeCalendar
             datesSet: async (dateInfo) => {
                 try {
                     // Only refresh if it's a navigation change
                     if (this._lastViewStart?.getTime() !== dateInfo.start.getTime()) {
-                        // console.log('Date range changed:', {
-                        //     start: dateInfo.start,
-                        //     end: dateInfo.end,
-                        //     lastStart: this._lastViewStart
-                        // });
-
                         this._lastViewStart = dateInfo.start;
-                        // console.log('refresh events from dataSet()');
+
+                        // Store current filter states before refresh
+                        const selectedTags = $('.filter-tag:checked').map((_, el) => el.value).get();
+                        const selectedPositions = $('.filter-position:checked').map((_, el) => el.value).get();
+
+                        // Refresh events
                         await this.refreshEvents();
+
+                        // After refresh, if there were active filters, reapply them
+                        if (selectedTags.length > 0 || selectedPositions.length > 0) {
+                            // Short delay to ensure DOM is ready
+                            setTimeout(() => {
+                                // Reselect previously selected filters
+                                selectedTags.forEach(tagId => {
+                                    $(`#tag-${tagId}`).prop('checked', true);
+                                });
+                                selectedPositions.forEach(posId => {
+                                    $(`#pos-${posId.replace(/\s+/g, '-')}`).prop('checked', true);
+                                });
+
+                                // Reapply filters
+                                this.applyFilters();
+
+                                // Force layout recalculation
+                                this.calendar.updateSize();
+                            }, 100);
+                        }
                     }
                 } catch (error) {
                     console.error('Error in datesSet handler:', error);
@@ -1601,6 +1710,217 @@ window.HunkProScheduler = {
         this.calendar.on('eventAdd', updateOnChange);
         this.calendar.on('eventChange', updateOnChange);
         this.calendar.on('eventRemove', updateOnChange);
+    },
+
+    updateTagFilters: function (dropdown) {
+        const events = this.calendar.getEvents();
+        const tags = new Set();
+
+        events.forEach(event => {
+            if (event.extendedProps?.tags2) {
+                event.extendedProps.tags2.forEach(tag => {
+                    tags.add(JSON.stringify({ id: tag.id, label: tag.val }));
+                });
+            }
+        });
+
+        dropdown.empty();
+        Array.from(tags).forEach(tagStr => {
+            const tag = JSON.parse(tagStr);
+            dropdown.append(`
+                <div class="form-check  py-2">
+                    <input class="form-check-input filter-tag" type="checkbox" value="${tag.id}" id="tag-${tag.id}">
+                    <label class="form-check-label" for="tag-${tag.id}">
+                        ${tag.label}
+                    </label>
+                </div>
+            `);
+        });
+
+        // Add clear button if needed
+        if (tags.size > 0) {
+            dropdown.append(`
+            <div class="dropdown-divider"></div>
+            <button class="btn btn-link btn-sm clear-tag-filters w-100">Clear Tags</button>
+        `);
+        }
+    },
+
+    updatePositionFilters: function (dropdown) {
+        const events = this.calendar.getEvents();
+        const positions = new Set();
+
+        // Only include regular events (shifts), exclude background events
+        events.forEach(event => {
+            // Check if it's a regular event (not a background event like availability)
+            if (event.display !== 'background' && event.title) {
+                positions.add(event.title);
+            }
+        });
+
+        dropdown.empty();
+        Array.from(positions).sort().forEach(position => {
+            dropdown.append(`
+                <div class="form-check py-2">
+                    <input class="form-check-input filter-position" type="checkbox" value="${position}" id="pos-${position.replace(/\s+/g, '-')}">
+                    <label class="form-check-label" for="pos-${position.replace(/\s+/g, '-')}">
+                        ${position}
+                    </label>
+                </div>
+            `);
+        });
+
+        // Add clear button if needed
+        if (positions.size > 0) {
+            dropdown.append(`
+                <div class="dropdown-divider"></div>
+                <button class="btn btn-link btn-sm clear-position-filters w-100">Clear Positions</button>
+            `);
+        }
+    },
+
+    applyFilters: function () {
+        // Get all selected tags and positions as arrays of values
+        const selectedTags = $('.filter-tag:checked').map((_, el) => el.value).get();
+        const selectedPositions = $('.filter-position:checked').map((_, el) => el.value).get();
+
+        // Update filter counters
+        const tagButton = this.calendar.el.querySelector('.fc-filterTag-button');
+        const posButton = this.calendar.el.querySelector('.fc-filterPosition-button');
+
+        // Handle tag counter
+        let tagCounter = tagButton.querySelector('.filter-counter');
+        if (!tagCounter) {
+            tagCounter = document.createElement('span');
+            tagCounter.className = 'filter-counter';
+            tagButton.appendChild(tagCounter);
+        }
+        if (selectedTags.length > 0) {
+            tagCounter.textContent = ` (${selectedTags.length})`;
+            tagCounter.classList.add('active');
+        } else {
+            tagCounter.textContent = '';
+            tagCounter.classList.remove('active');
+        }
+
+        // Handle position counter
+        let posCounter = posButton.querySelector('.filter-counter');
+        if (!posCounter) {
+            posCounter = document.createElement('span');
+            posCounter.className = 'filter-counter';
+            posButton.appendChild(posCounter);
+        }
+        if (selectedPositions.length > 0) {
+            posCounter.textContent = ` (${selectedPositions.length})`;
+            posCounter.classList.add('active');
+        } else {
+            posCounter.textContent = '';
+            posCounter.classList.remove('active');
+        }
+
+        // Get all events from the calendar
+        const events = this.calendar.getEvents();
+
+        // Get both timeline lanes and resource rows - these are the visual elements we'll show/hide
+        const resourceLanes = this.calendar.el.querySelectorAll('.fc-timeline-lane[data-resource-id]');
+        const resourceRows = this.calendar.el.querySelectorAll('.fc-resource-group,.fc-resource');
+
+        // Create a map to store which resources should be visible
+        const visibilityMap = new Map();
+
+        // If no filters selected, show everything and ensure proper layout
+        if (selectedTags.length === 0 && selectedPositions.length === 0) {
+            resourceLanes.forEach(el => {
+                el.style.display = '';
+                el.style.height = ''; // Clear any inline height
+            });
+            resourceRows.forEach(el => {
+                el.style.display = '';
+                el.style.height = ''; // Clear any inline height
+            });
+
+            // Force a layout recalculation
+            this.calendar.updateSize();
+            return;
+        }
+
+        // Process each resource lane
+        resourceLanes.forEach(lane => {
+            const resourceId = lane.getAttribute('data-resource-id');
+
+            // Get events for this resource
+            const resourceEvents = events.filter(event =>
+                event.getResources()[0]?.id === resourceId
+            );
+
+            // Check if any event matches the filters
+            const hasMatch = resourceEvents.some(event => {
+                const matchesTags = selectedTags.length === 0 ||
+                    event.extendedProps?.tags2?.some(tag =>
+                        selectedTags.includes(tag.id)
+                    );
+
+                const matchesPosition = selectedPositions.length === 0 ||
+                    selectedPositions.includes(event.title);
+
+                return matchesTags && matchesPosition;
+            });
+
+            // Store visibility state
+            visibilityMap.set(resourceId, hasMatch);
+
+            // Apply visibility to timeline lane
+            lane.style.display = hasMatch ? '' : 'none';
+        });
+
+        // Apply visibility to resource rows
+        resourceRows.forEach(row => {
+            // Handle both individual resources and groups
+            if (row.classList.contains('fc-resource')) {
+                const resourceId = row.getAttribute('data-resource-id');
+                const isVisible = visibilityMap.get(resourceId);
+                row.style.display = isVisible ? '' : 'none';
+            } else if (row.classList.contains('fc-resource-group')) {
+                // For groups, check if any child resources are visible
+                const childResources = row.querySelectorAll('.fc-resource[data-resource-id]');
+                const hasVisibleChild = Array.from(childResources).some(child =>
+                    visibilityMap.get(child.getAttribute('data-resource-id'))
+                );
+                row.style.display = hasVisibleChild ? '' : 'none';
+            }
+        });
+
+        // Force layout recalculation after a short delay
+        setTimeout(() => {
+            this.calendar.updateSize();
+        }, 50);
+    },
+
+    clearFilters: function (type) {
+        if (type === 'tag') {
+            $('.filter-tag').prop('checked', false);
+            const tagCounter = this.calendar.el.querySelector('.fc-filterTag-button .filter-counter');
+            tagCounter.textContent = '';
+            tagCounter.classList.remove('active');
+        } else if (type === 'position') {
+            $('.filter-position').prop('checked', false);
+            const posCounter = this.calendar.el.querySelector('.fc-filterPosition-button .filter-counter');
+            posCounter.textContent = '';
+            posCounter.classList.remove('active');
+        }
+
+        // Apply filter clearing
+        this.applyFilters();
+
+        // Force layout recalculation after a short delay
+        setTimeout(() => {
+            // Reset any inline styles that might affect layout
+            this.calendar.el.querySelectorAll('.fc-timeline-lane, .fc-resource-group, .fc-resource').forEach(el => {
+                el.style.height = '';
+            });
+
+            this.calendar.updateSize();
+        }, 50);
     },
 
     showCopyWeekDialog: async function () {
@@ -1789,8 +2109,8 @@ window.HunkProScheduler = {
                     form.append('field_60', newDate.toISOString().split('T')[0]);
                     form.append('field_59', shift.positionId[0]);
                     form.append('field_478', 'Not Published');
-                    
-                    console.log("handleCopyConfirm ::: form",form);
+
+                    console.log("handleCopyConfirm ::: form", form);
 
                     if (shift.extendedProps.tags) {
                         form.append('field_477', shift.extendedProps.tags.join(","));
@@ -1900,7 +2220,7 @@ window.HunkProScheduler = {
         const cancelButton = modal.querySelector('.btn-secondary');
         let isRetrying = false;
 
-        console.log('failedShifts',failedShifts);
+        console.log('failedShifts', failedShifts);
 
         try {
             // Show retry confirmation
@@ -1947,7 +2267,7 @@ window.HunkProScheduler = {
             const newFailures = [];
             let currentShift = 0;
 
-            
+
 
             // Process each failed shift
             for (const failedItem of failedShifts) {
