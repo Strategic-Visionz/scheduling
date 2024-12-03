@@ -1236,3 +1236,67 @@
 .progress-update {
     animation: progressFade 0.3s ease-in-out;
 }
+
+/* Filter Button Styling */
+.fc-filterTag-button,
+.fc-filterPosition-button {
+    background: #fff !important;
+    border: 1px solid #e2e8f0 !important;
+    padding: 8px 16px !important;
+    font-size: 0.875rem !important;
+    border-radius: 6px !important;
+    color: #1a202c !important;
+    /* display: flex !important; */
+    /* align-items: center !important; */
+    gap: 8px !important;
+    transition: all 0.2s ease !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.fc-filterTag-button:hover,
+.fc-filterPosition-button:hover {
+    background: #f8fafc !important;
+    border-color: #cbd5e1 !important;
+}
+
+/* Clear Button Styling */
+.clear-tag-filters,
+.clear-position-filters {
+    color: var(--chhj-orange);
+    font-size: 0.875rem;
+    /* padding: 8px; */
+    /* margin: 8px; */
+    width: calc(100% - 16px);
+    border-radius: 4px;
+    border: 1px solid var(--chhj-orange-border);
+    background: var(--chhj-orange-light);
+    text-align: center;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.clear-tag-filters:hover,
+.clear-position-filters:hover {
+    background: var(--chhj-orange-light);
+    opacity: 0.9;
+}
+
+/* Divider */
+.dropdown-divider {
+    margin: 8px 0;
+    border-top: 1px solid #e2e8f0;
+}
+
+/* Container spacing */
+#tag-filter-dropdown,
+#position-filter-dropdown {
+    padding: 12px;
+}
+
+/* Ensure proper checkbox alignment */
+.form-check-input[type="checkbox"] {
+    min-width: 16px;
+    height: 16px;
+    position: relative;
+    top: 0;
+}
