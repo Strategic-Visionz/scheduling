@@ -1430,6 +1430,15 @@ window.HunkProScheduler = {
                 filterTag: {
                     text: 'Filter by Tag',
                     click: (e) => {
+                        // Create and update counter span if it doesn't exist
+                        let button = e.currentTarget;
+                        let counter = button.querySelector('.filter-counter');
+                        if (!counter) {
+                            counter = document.createElement('span');
+                            counter.className = 'filter-counter';
+                            button.appendChild(counter);
+                        }
+
                         const tagDropdown = $('#tag-filter-dropdown');
                         const posDropdown = $('#position-filter-dropdown');
 
@@ -1438,17 +1447,17 @@ window.HunkProScheduler = {
 
                         if (!tagDropdown.length) {
                             const dropdown = $(`
-    <div id="tag-filter-dropdown" class="dropdown-menu p-2" style="min-width: 250px">
-        <!-- Tags will be populated here -->
-    </div>
-`).appendTo('body');
+                                <div id="tag-filter-dropdown" class="dropdown-menu p-2" style="min-width: 250px">
+                                    <!-- Tags will be populated here -->
+                                </div>
+                            `).appendTo('body');
                             this.updateTagFilters(dropdown);
                         }
-                        const button = $(e.currentTarget);
+                        const button$ = $(e.currentTarget);
                         const dropdown = $('#tag-filter-dropdown');
                         dropdown.css({
-                            top: button.offset().top + button.outerHeight(),
-                            left: button.offset().left
+                            top: button$.offset().top + button$.outerHeight(),
+                            left: button$.offset().left
                         }).toggleClass('show');
                         e.stopPropagation();
                     }
@@ -1456,6 +1465,15 @@ window.HunkProScheduler = {
                 filterPosition: {
                     text: 'Filter by Position',
                     click: (e) => {
+                        // Create and update counter span if it doesn't exist
+                        let button = e.currentTarget;
+                        let counter = button.querySelector('.filter-counter');
+                        if (!counter) {
+                            counter = document.createElement('span');
+                            counter.className = 'filter-counter';
+                            button.appendChild(counter);
+                        }
+
                         const tagDropdown = $('#tag-filter-dropdown');
                         const posDropdown = $('#position-filter-dropdown');
 
@@ -1464,17 +1482,17 @@ window.HunkProScheduler = {
 
                         if (!posDropdown.length) {
                             const dropdown = $(`
-    <div id="position-filter-dropdown" class="dropdown-menu p-2" style="min-width: 250px">
-        <!-- Positions will be populated here -->
-    </div>
-`).appendTo('body');
+                                <div id="position-filter-dropdown" class="dropdown-menu p-2" style="min-width: 250px">
+                                    <!-- Positions will be populated here -->
+                                </div>
+                            `).appendTo('body');
                             this.updatePositionFilters(dropdown);
                         }
-                        const button = $(e.currentTarget);
+                        const button$ = $(e.currentTarget);
                         const dropdown = $('#position-filter-dropdown');
                         dropdown.css({
-                            top: button.offset().top + button.outerHeight(),
-                            left: button.offset().left
+                            top: button$.offset().top + button$.outerHeight(),
+                            left: button$.offset().left
                         }).toggleClass('show');
                         e.stopPropagation();
                     }
@@ -1766,6 +1784,40 @@ window.HunkProScheduler = {
         const selectedTags = $('.filter-tag:checked').map((_, el) => el.value).get();
         const selectedPositions = $('.filter-position:checked').map((_, el) => el.value).get();
 
+        // Update filter counters
+        const tagButton = this.calendar.el.querySelector('.fc-filterTag-button');
+        const posButton = this.calendar.el.querySelector('.fc-filterPosition-button');
+
+        // Handle tag counter
+        let tagCounter = tagButton.querySelector('.filter-counter');
+        if (!tagCounter) {
+            tagCounter = document.createElement('span');
+            tagCounter.className = 'filter-counter';
+            tagButton.appendChild(tagCounter);
+        }
+        if (selectedTags.length > 0) {
+            tagCounter.textContent = ` (${selectedTags.length})`;
+            tagCounter.classList.add('active');
+        } else {
+            tagCounter.textContent = '';
+            tagCounter.classList.remove('active');
+        }
+
+        // Handle position counter
+        let posCounter = posButton.querySelector('.filter-counter');
+        if (!posCounter) {
+            posCounter = document.createElement('span');
+            posCounter.className = 'filter-counter';
+            posButton.appendChild(posCounter);
+        }
+        if (selectedPositions.length > 0) {
+            posCounter.textContent = ` (${selectedPositions.length})`;
+            posCounter.classList.add('active');
+        } else {
+            posCounter.textContent = '';
+            posCounter.classList.remove('active');
+        }
+
         // Get all events from the calendar
         const events = this.calendar.getEvents();
 
@@ -1839,7 +1891,6 @@ window.HunkProScheduler = {
         });
 
         // Force layout recalculation after a short delay
-        // This ensures the DOM has processed the visibility changes
         setTimeout(() => {
             this.calendar.updateSize();
         }, 50);
@@ -1848,8 +1899,14 @@ window.HunkProScheduler = {
     clearFilters: function (type) {
         if (type === 'tag') {
             $('.filter-tag').prop('checked', false);
+            const tagCounter = this.calendar.el.querySelector('.fc-filterTag-button .filter-counter');
+            tagCounter.textContent = '';
+            tagCounter.classList.remove('active');
         } else if (type === 'position') {
             $('.filter-position').prop('checked', false);
+            const posCounter = this.calendar.el.querySelector('.fc-filterPosition-button .filter-counter');
+            posCounter.textContent = '';
+            posCounter.classList.remove('active');
         }
 
         // Apply filter clearing

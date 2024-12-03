@@ -1300,3 +1300,13 @@
     position: relative;
     top: 0;
 }
+
+.filter-counter {
+    color: var(--chhj-orange);
+    font-weight: bold;
+    display: none;
+}
+
+.filter-counter.active {
+    display: inline;
+}
