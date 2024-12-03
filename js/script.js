@@ -1493,26 +1493,6 @@ window.HunkProScheduler = {
                 }
             },
 
-            // Core event handlers
-            // datesSet: async (dateInfo) => {
-            //     try {
-            //         // Only refresh if it's a navigation change
-            //         if (this._lastViewStart?.getTime() !== dateInfo.start.getTime()) {
-            //             // console.log('Date range changed:', {
-            //             //     start: dateInfo.start,
-            //             //     end: dateInfo.end,
-            //             //     lastStart: this._lastViewStart
-            //             // });
-
-            //             this._lastViewStart = dateInfo.start;
-            //             // console.log('refresh events from dataSet()');
-            //             await this.refreshEvents();
-            //         }
-            //     } catch (error) {
-            //         console.error('Error in datesSet handler:', error);
-            //     }
-            // },
-
             datesSet: async (dateInfo) => {
                 try {
                     // Only refresh if it's a navigation change
@@ -1780,74 +1760,6 @@ window.HunkProScheduler = {
             `);
         }
     },
-
-    // applyFilters: function () {
-    //     const selectedTags = $('.filter-tag:checked').map((_, el) => el.value).get();
-    //     const selectedPositions = $('.filter-position:checked').map((_, el) => el.value).get();
-
-    //     // Get all events
-    //     const events = this.calendar.getEvents();
-
-    //     // Get both the timeline lanes and resource rows
-    //     const resourceLanes = this.calendar.el.querySelectorAll('.fc-timeline-lane[data-resource-id]');
-    //     const resourceRows = this.calendar.el.querySelectorAll('.fc-resource-group,.fc-resource'); // Get both group and individual resource rows
-
-    //     // Create a map to store visibility state
-    //     const visibilityMap = new Map();
-
-    //     // If no filters selected, show everything
-    //     if (selectedTags.length === 0 && selectedPositions.length === 0) {
-    //         resourceLanes.forEach(el => el.style.display = '');
-    //         resourceRows.forEach(el => el.style.display = '');
-    //         return;
-    //     }
-
-    //     // Process each resource
-    //     resourceLanes.forEach(lane => {
-    //         const resourceId = lane.getAttribute('data-resource-id');
-
-    //         // Get events for this resource
-    //         const resourceEvents = events.filter(event =>
-    //             event.getResources()[0]?.id === resourceId
-    //         );
-
-    //         // Check if any event matches the filters
-    //         const hasMatch = resourceEvents.some(event => {
-    //             const matchesTags = selectedTags.length === 0 ||
-    //                 event.extendedProps?.tags2?.some(tag =>
-    //                     selectedTags.includes(tag.id)
-    //                 );
-
-    //             const matchesPosition = selectedPositions.length === 0 ||
-    //                 selectedPositions.includes(event.title);
-
-    //             return matchesTags && matchesPosition;
-    //         });
-
-    //         // Store visibility state
-    //         visibilityMap.set(resourceId, hasMatch);
-
-    //         // Apply visibility to timeline lane
-    //         lane.style.display = hasMatch ? '' : 'none';
-    //     });
-
-    //     // Apply visibility to resource rows
-    //     resourceRows.forEach(row => {
-    //         // Handle both individual resources and groups
-    //         if (row.classList.contains('fc-resource')) {
-    //             const resourceId = row.getAttribute('data-resource-id');
-    //             const isVisible = visibilityMap.get(resourceId);
-    //             row.style.display = isVisible ? '' : 'none';
-    //         } else if (row.classList.contains('fc-resource-group')) {
-    //             // For groups, check if any child resources are visible
-    //             const childResources = row.querySelectorAll('.fc-resource[data-resource-id]');
-    //             const hasVisibleChild = Array.from(childResources).some(child =>
-    //                 visibilityMap.get(child.getAttribute('data-resource-id'))
-    //             );
-    //             row.style.display = hasVisibleChild ? '' : 'none';
-    //         }
-    //     });
-    // },
 
     applyFilters: function () {
         // Get all selected tags and positions as arrays of values
