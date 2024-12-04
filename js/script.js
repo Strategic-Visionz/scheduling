@@ -29,6 +29,7 @@ window.HunkProScheduler = {
 
     tagsTableData: [],
     tagStatistics: {},
+    pendingOperations: new Map(),
 
     countUnpublishedShifts: function () {
         const currentView = this.calendar.view;
@@ -1576,12 +1577,15 @@ window.HunkProScheduler = {
                 }
             },
 
+            // Update the eventContent function in the calendar initialization
             eventContent: (arg) => {
                 if (arg.event.display !== 'background') {
                     const hasNotes = arg.event.extendedProps.hasNotes || false;
                     const publishStatus = arg.event.extendedProps.publishStatus || 'unknown';
                     const tags = arg.event.extendedProps.tags2 || [];
+                    const syncStatus = arg.event.extendedProps?.syncStatus;
 
+                    // Get status icon info (existing function remains the same)
                     const getStatusIconInfo = (status) => {
                         switch (status) {
                             case 'Not Published':
@@ -1611,41 +1615,24 @@ window.HunkProScheduler = {
                         }
                     };
 
-                    // console.log('tags :::', tags);
-
                     const statusInfo = getStatusIconInfo(publishStatus);
 
-                    // console.log('this.tagsTableData', this.tagsTableData);
-                    // console.log('tags', tags);
-                    const processedTags = tags
-                        .map(tag => {
-                            // 
+                    // Updated tags processing to handle both initial and refreshed states
+                    let processedTags = [];
+                    if (Array.isArray(tags)) {
+                        processedTags = tags.map(tag => {
+                            // Handle both direct tag objects and tag references
+                            const tagId = tag.id || tag;
+                            const tagData = window.HunkProScheduler.tagsTableData.find(t => t.id === tagId);
 
-                            // Find the full tag data from tagsTableData
-                            const tagData = this.tagsTableData.find(t =>
-                                tag.id === t.id
-                            );
+                            return {
+                                id: tagId,
+                                label: tag.val || (tagData ? tagData.field_43 : ''),
+                                type: tagData?.field_63?.toLowerCase() || ''
+                            };
+                        }).filter(tag => tag.label); // Filter out any tags without labels
+                    }
 
-                            // console.log(`Tag Data :`, tagData);
-
-                            // console.log(`Tag ID: ${tag.id}`, {
-                            //     id: tag.id,
-                            //     label: tag.val,
-                            //     type: tagData?.field_63?.toLowerCase() || '' // 'Tier' or 'Resource'
-                            // });
-
-                            if (tag) {
-                                return {
-                                    id: tag.id,
-                                    label: tag.val,
-                                    type: tagData?.field_63?.toLowerCase() || '' // 'Tier' or 'Resource'
-                                };
-                            }
-                            return null;
-                        })
-                        .filter(tag => tag !== null);
-
-                    // Create tags HTML if tags exist
                     const tagsHtml = processedTags.length > 0 ? `
                         <div class="hunkpro-event-tags">
                             ${processedTags.map(tag => `
@@ -1653,6 +1640,12 @@ window.HunkProScheduler = {
                                     ${tag.label}
                                 </span>
                             `).join('')}
+                        </div>
+                    ` : '';
+
+                    const syncStatusHtml = syncStatus ? `
+                        <div class="sync-status-indicator">
+                            <div class="sync-${syncStatus}"></div>
                         </div>
                     ` : '';
 
@@ -1677,6 +1670,7 @@ window.HunkProScheduler = {
                                     </div>
                                 </div>
                                 ${tagsHtml}
+                                ${syncStatusHtml}
                             </div>
                         `
                     };
@@ -2978,13 +2972,27 @@ window.HunkProScheduler = {
 
     },
 
-    // Update handleFormSubmit to use Bootstrap modal
+    // Generate a unique operation ID
+    generateOperationId: function () {
+        return `op-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    },
+
+    // Track an operation and its associated event
+    trackOperation: function (operationId, event, type) {
+        this.pendingOperations.set(operationId, {
+            event,
+            type,
+            status: 'pending',
+            timestamp: Date.now()
+        });
+    },
+
+    // Update handleFormSubmit with improved event tracking
     handleFormSubmit: async function () {
         const modal = document.getElementById('hunkpro-shift-modal');
         const position = document.getElementById('hunkpro-shift-position').value;
         const notesInput = document.getElementById('hunkpro-shift-notes').value;
         const isAddMode = modal.dataset.mode === 'add';
-        console.log('isAddMode', isAddMode);
 
         const selectedTags = this.getSelectedTags();
         const tagIds = selectedTags.map(tag => tag.id);
@@ -2996,57 +3004,144 @@ window.HunkProScheduler = {
             return;
         }
 
+        // Generate unique operation ID
+        const operationId = this.generateOperationId();
+
         try {
             this.toggleLoader(true, isAddMode ? 'Adding Shift...' : 'Updating Shift...');
 
+            const positionDisplayText = $('#hunkpro-shift-position option:selected').text();
+            const selectedDate = this.datePicker.formatDate(
+                this.datePicker.selectedDates[0],
+                "Y-m-d"
+            );
+
+            // Get existing event's publish status - inlined from previous helper
+            const getPublishStatus = () => {
+                if (isAddMode) return 'Not Published';
+                const event = this.calendar.getEventById(modal.dataset.eventId);
+                return event?.extendedProps?.publishStatus === 'Published' ? 'Re-Publish' : 'Not Published';
+            };
+
+            // Create event data
+            const eventData = {
+                id: operationId, // Use operation ID as temporary event ID
+                resourceId: modal.dataset.resourceId,
+                title: positionDisplayText,
+                start: selectedDate,
+                allDay: true,
+                classNames: [`hunkpro-shift-${positionDisplayText.toLowerCase().replace(/\s+/g, '')}`],
+                extendedProps: {
+                    publishStatus: getPublishStatus(),
+                    hasNotes: notesInput.trim().length > 0,
+                    notes: notesInput,
+                    tags: tagIds,
+                    tags2: selectedTags,
+                    syncStatus: 'syncing',
+                    positionId: [position],
+                    operationId // Store operation ID in event props
+                }
+            };
+
+            let calendarEvent;
+
             if (isAddMode) {
-                const selectedDate = this.datePicker.formatDate(
-                    this.datePicker.selectedDates[0],
-                    "Y-m-d"
-                );
-                const newShift = {
+                // Add temporary event
+                calendarEvent = this.calendar.addEvent(eventData);
+                this.trackOperation(operationId, calendarEvent, 'add');
+                // throw new Error('Forced error for testing');
+            } else {
+                // Update existing event - inlined from previous helper
+                const existingEvent = this.calendar.getEventById(modal.dataset.eventId);
+                if (existingEvent) {
+                    this.trackOperation(operationId, existingEvent, 'update');
+                    // throw new Error('Forced error for testing');
+
+                    // Update event properties
+                    existingEvent.setProp('title', eventData.title);
+                    existingEvent.setProp('start', eventData.start);
+                    existingEvent.setProp('allDay', true);
+
+                    if (existingEvent._def) {
+                        existingEvent._def.classNames = eventData.classNames;
+                    }
+
+                    Object.keys(eventData.extendedProps).forEach(key => {
+                        existingEvent.setExtendedProp(key, eventData.extendedProps[key]);
+                    });
+
+                    calendarEvent = existingEvent;
+                }
+            }
+
+            // Close modal early to prevent interference
+            const bsModal = bootstrap.Modal.getInstance(modal);
+            bsModal.hide();
+
+            // Make API call
+            if (isAddMode) {
+                await this.addShift({
+                    operationId,
                     user: modal.dataset.resourceId,
                     position: position,
                     date: selectedDate,
                     tags: tagIds,
                     notes: notesInput
-                };
-
-                await this.addShift(newShift);
+                });
             } else {
-                const event = this.calendar.getEventById(modal.dataset.eventId);
-                const selectedDate = this.datePicker.formatDate(
-                    this.datePicker.selectedDates[0],
-                    "Y-m-d"
-                );
-
-                // Get current publish status from event
-                let publishStatus = event.extendedProps.publishStatus || 'Not Published';
-                // if currently published, make sure to tag as Re-Publish
-                publishStatus = publishStatus === 'Published' ? 'Re-Publish' : publishStatus
-
                 await this.updateShift({
-                    id: event?.id || '',
+                    operationId,
+                    id: modal.dataset.eventId,
                     date: selectedDate,
-                    position: $('#hunkpro-shift-position').val() || '',
+                    position: position,
                     tags: tagIds,
                     notes: notesInput,
-                    publishStatus: publishStatus
+                    publishStatus: eventData.extendedProps.publishStatus
                 });
             }
 
-            // Close modal before refresh to prevent UI lag
-            const bsModal = bootstrap.Modal.getInstance(modal);
-            bsModal.hide();
+            // Update operation status
+            this.pendingOperations.get(operationId).status = 'success';
 
-            // Refresh events after modal is closed
+            // Update the event after successful API call
+            if (calendarEvent && !calendarEvent.isDeleted) {
+                calendarEvent.setExtendedProp('syncStatus', 'synced');
+                // Remove temporary operation ID after success
+                setTimeout(() => {
+                    calendarEvent.setExtendedProp('operationId', null);
+                }, 1000);
+            }
+
+            this.updateAllCounts();
             await this.refreshEvents();
 
         } catch (error) {
             console.error('Error handling form submit:', error);
+
+            // Find event by operation ID
+            const operation = this.pendingOperations.get(operationId);
+            if (operation && operation.event && !operation.event.isDeleted) {
+                operation.event.setExtendedProp('syncStatus', 'error');
+
+                // Handle cleanup after error display
+                setTimeout(() => {
+                    if (isAddMode) {
+                        operation.event.remove();
+                    } else if (operation.event && !operation.event.isDeleted) {
+                        operation.event.setExtendedProp('syncStatus', null);
+                    }
+                }, 3000);
+            }
+
             this.toggleLoader(false);
             this.showError('Failed to save shift. Please try again.');
+
         } finally {
+            // Cleanup operation after delay
+            setTimeout(() => {
+                this.pendingOperations.delete(operationId);
+            }, 5000);
+
             this.clearAllOverrides();
         }
     },
