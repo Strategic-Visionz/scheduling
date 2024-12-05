@@ -21,7 +21,7 @@ const CacheUtility = {
 
             // Use provided validator or default to true
             const isValidData = validator ? validator(data) : true;
-            console.log(`getValidCache for ${key}`, data);
+
             return (!isExpired && isValidData) ? data : null;
         } catch (error) {
             console.warn(`Cache validation failed for ${key}:`, error);
@@ -842,8 +842,6 @@ window.HunkProScheduler = {
                 this.fetchEmployees()
             ]);
 
-            console.log('employees', employees);
-
             this.initializeCalendar(employees);
 
             // Makes sure that the refresh event finishes
@@ -961,28 +959,20 @@ window.HunkProScheduler = {
                     const nextPageData = await fetchPage(currentPage);
                     allItems = [...allItems, ...nextPageData.items];
                 }
-                console.log('allItems', allItems);
+
                 return allItems;
             },
-            processData: (items) => {
-                return items.map(item => {
-                    let employee = {
-                        id: item.id,
-                        title: item.cached ? item.title : item.name,
-                        extendedProps: item.cached ? item.extendedProps : {
-                            department: item.field_427 || [],
-                            status: item.status,
-                            weeklyShifts: 0,
-                            position: item.field_395_val,
-                            tags: item.field_62_val || []
-                        },
-                        cached: true
-                    };
-                    // console.log('processData: employee', employee);
-                    return employee;
-                });
-            },
-
+            processData: (items) => items.map(item => ({
+                id: item.id,
+                title: item.name,
+                extendedProps: {
+                    department: item.field_427 || [],
+                    status: item.status,
+                    weeklyShifts: 0,
+                    position: item.field_395_val,
+                    tags: item.field_62_val || []
+                }
+            })),
             useExpiredCache: true // Allow using expired cache as fallback
         });
     },
@@ -3280,7 +3270,7 @@ window.HunkProScheduler = {
                 "Y-m-d"
             );
 
-            // Get publish status
+            // Get existing event's publish status - inlined from previous helper
             const getPublishStatus = () => {
                 if (isAddMode) return 'Not Published';
                 const event = this.calendar.getEventById(modal.dataset.eventId);
@@ -3289,7 +3279,7 @@ window.HunkProScheduler = {
 
             // Create event data
             const eventData = {
-                id: operationId, // Temporary ID for new events
+                id: operationId, // Use operation ID as temporary event ID
                 resourceId: modal.dataset.resourceId,
                 title: positionDisplayText,
                 start: selectedDate,
@@ -3303,36 +3293,48 @@ window.HunkProScheduler = {
                     tags2: selectedTags,
                     syncStatus: 'syncing',
                     positionId: [position],
-                    operationId
+                    operationId // Store operation ID in event props
                 }
             };
 
             let calendarEvent;
-            let existingEvent;
 
             if (isAddMode) {
                 // Add temporary event
                 calendarEvent = this.calendar.addEvent(eventData);
                 this.trackOperation(operationId, calendarEvent, 'add');
+                // throw new Error('Forced error for testing');
             } else {
-                existingEvent = this.calendar.getEventById(modal.dataset.eventId);
+                // Update existing event - inlined from previous helper
+                const existingEvent = this.calendar.getEventById(modal.dataset.eventId);
                 if (existingEvent) {
                     this.trackOperation(operationId, existingEvent, 'update');
+                    // throw new Error('Forced error for testing');
 
-                    // Update existing event with temporary sync status
-                    existingEvent.setExtendedProp('syncStatus', 'syncing');
+                    // Update event properties
+                    existingEvent.setProp('title', eventData.title);
+                    existingEvent.setProp('start', eventData.start);
+                    existingEvent.setProp('allDay', true);
+
+                    if (existingEvent._def) {
+                        existingEvent._def.classNames = eventData.classNames;
+                    }
+
+                    Object.keys(eventData.extendedProps).forEach(key => {
+                        existingEvent.setExtendedProp(key, eventData.extendedProps[key]);
+                    });
+
                     calendarEvent = existingEvent;
                 }
             }
 
-            // Close modal early
+            // Close modal early to prevent interference
             const bsModal = bootstrap.Modal.getInstance(modal);
             bsModal.hide();
 
             // Make API call
-            let apiResponse;
             if (isAddMode) {
-                apiResponse = await this.addShift({
+                await this.addShift({
                     operationId,
                     user: modal.dataset.resourceId,
                     position: position,
@@ -3341,7 +3343,7 @@ window.HunkProScheduler = {
                     notes: notesInput
                 });
             } else {
-                apiResponse = await this.updateShift({
+                await this.updateShift({
                     operationId,
                     id: modal.dataset.eventId,
                     date: selectedDate,
@@ -3355,50 +3357,17 @@ window.HunkProScheduler = {
             // Update operation status
             this.pendingOperations.get(operationId).status = 'success';
 
-            // After successful API call, update the event to look like a regular fetched event
+            // Update the event after successful API call
             if (calendarEvent && !calendarEvent.isDeleted) {
-                if (isAddMode) {
-                    // Remove temporary event
-                    console.log('calendarEvent',calendarEvent);
-                    console.log('!calendarEvent.isDeleted',!calendarEvent.isDeleted);
-                    calendarEvent.remove();
-
-                    // Create new event with API response data
-                    const newEvent = {
-                        id: apiResponse.id, // Use actual ID from API
-                        resourceId: modal.dataset.resourceId,
-                        title: positionDisplayText,
-                        start: selectedDate,
-                        allDay: true,
-                        classNames: [`hunkpro-shift-${positionDisplayText.toLowerCase().replace(/\s+/g, '')}`],
-                        extendedProps: {
-                            publishStatus: 'Not Published',
-                            hasNotes: notesInput.trim().length > 0,
-                            notes: notesInput,
-                            tags: tagIds,
-                            tags2: selectedTags,
-                            positionId: [position]
-                        }
-                    };
-
-                    this.calendar.addEvent(newEvent);
-                    // Use setTimeout to ensure the removal completes before adding
-                    // setTimeout(() => {
-                    //     this.calendar.addEvent(newEvent);
-                    //     this.calendar.render(); // Force a re-render to ensure clean display
-                    // }, 0);
-                } else {
-                    // Update existing event with final data
-                    Object.keys(eventData.extendedProps).forEach(key => {
-                        if (key !== 'syncStatus' && key !== 'operationId') {
-                            calendarEvent.setExtendedProp(key, eventData.extendedProps[key]);
-                        }
-                    });
-                    calendarEvent.setExtendedProp('syncStatus', null);
-                }
+                calendarEvent.setExtendedProp('syncStatus', 'synced');
+                // Remove temporary operation ID after success
+                setTimeout(() => {
+                    calendarEvent.setExtendedProp('operationId', null);
+                }, 1000);
             }
 
             this.updateAllCounts();
+            await this.refreshEvents();
 
         } catch (error) {
             console.error('Error handling form submit:', error);
