@@ -962,17 +962,24 @@ window.HunkProScheduler = {
 
                 return allItems;
             },
-            processData: (items) => items.map(item => ({
-                id: item.id,
-                title: item.name,
-                extendedProps: {
-                    department: item.field_427 || [],
-                    status: item.status,
-                    weeklyShifts: 0,
-                    position: item.field_395_val,
-                    tags: item.field_62_val || []
-                }
-            })),
+            processData: (items) => {
+                return items.map(item => {
+                    let employee = {
+                        id: item.id,
+                        title: item.cached ? item.title : item.name,
+                        extendedProps: item.cached ? item.extendedProps : {
+                            department: item.field_427 || [],
+                            status: item.status,
+                            weeklyShifts: 0,
+                            position: item.field_395_val,
+                            tags: item.field_62_val || []
+                        },
+                        cached: true
+                    };
+                    // console.log('processData: employee', employee);
+                    return employee;
+                });
+            },
             useExpiredCache: true // Allow using expired cache as fallback
         });
     },
