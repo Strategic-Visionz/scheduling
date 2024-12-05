@@ -735,40 +735,69 @@ window.HunkProScheduler = {
     },
 
     fetchEmployees: function () {
-        return new Promise((resolve, reject) => {
-            $.ajax({
-                "url": `https://api.tadabase.io/api/v1/data-tables/4MXQJdrZ6v/records?filters[items][0][field_id]=field_427&filters[items][0][operator]=contains_any&filters[items][0][val]=Truck Operations&filters[items][1][field_id]=status&filters[items][1][operator]=is&filters[items][1][val]=Active&limit=100&page=1`,
-                "method": "GET",
-                "timeout": 0,
-                "headers": {
-                    "X-Tadabase-App-id": this.tb_app_id,
-                    "X-Tadabase-App-Key": this.tb_app_key,
-                    "X-Tadabase-App-Secret": this.tb_app_secret
-                },
-                "processData": false,
-                "mimeType": "multipart/form-data",
-                "contentType": false,
-                success: function (data) {
-                    const parsedData = JSON.parse(data);
-                    // console.log('Employees', parsedData);
-                    const users = parsedData.items.map(item => ({
-                        id: item.id,
-                        title: item.name,
-                        extendedProps: {
-                            department: item.field_427 || [],
-                            status: item.status,
-                            weeklyShifts: 0,
-                            position: item.field_395_val,
-                            tags: item.field_62_val || []
-                        }
-                    }));
-                    resolve(users);
-                },
-                error: function (error) {
-                    console.error('Error fetching employees:', error);
-                    reject(error);
-                }
+        // Helper function to fetch a single page
+        const fetchPage = async (page) => {
+            console.log(`Employees ::: fetchPage ${page}`);
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    "url": `https://api.tadabase.io/api/v1/data-tables/4MXQJdrZ6v/records?filters[items][0][field_id]=field_427&filters[items][0][operator]=contains_any&filters[items][0][val]=Truck Operations&filters[items][1][field_id]=status&filters[items][1][operator]=is&filters[items][1][val]=Active&limit=100&page=${page}`,
+                    "method": "GET",
+                    "timeout": 0,
+                    "headers": {
+                        "X-Tadabase-App-id": this.tb_app_id,
+                        "X-Tadabase-App-Key": this.tb_app_key,
+                        "X-Tadabase-App-Secret": this.tb_app_secret
+                    },
+                    "processData": false,
+                    "mimeType": "multipart/form-data",
+                    "contentType": false,
+                    success: function (data) {
+                        resolve(JSON.parse(data));
+                    },
+                    error: function (error) {
+                        reject(error);
+                    }
+                });
             });
+        };
+
+        // Main function to handle pagination and combine results
+        return new Promise(async (resolve, reject) => {
+            try {
+                let allItems = [];
+                let currentPage = 1;
+                let totalPages = 1;
+
+                // First request to get initial data and total pages
+                const firstPageData = await fetchPage(currentPage);
+                totalPages = firstPageData.total_pages;
+                allItems = [...firstPageData.items];
+
+                // Fetch remaining pages if any
+                while (currentPage < totalPages) {
+                    currentPage++;
+                    const nextPageData = await fetchPage(currentPage);
+                    allItems = [...allItems, ...nextPageData.items];
+                }
+
+                // Process all collected items
+                const users = allItems.map(item => ({
+                    id: item.id,
+                    title: item.name,
+                    extendedProps: {
+                        department: item.field_427 || [],
+                        status: item.status,
+                        weeklyShifts: 0,
+                        position: item.field_395_val,
+                        tags: item.field_62_val || []
+                    }
+                }));
+
+                resolve(users);
+            } catch (error) {
+                console.error('Error fetching employees:', error);
+                reject(error);
+            }
         });
     },
 
@@ -776,12 +805,8 @@ window.HunkProScheduler = {
         const viewStart = this.calendar.view.activeStart;
         const viewEnd = this.calendar.view.activeEnd;
 
-        // console.log(`fetchSchedules ${viewStart} ${viewEnd}`);
-
         const startDate = viewStart.toISOString().split('T')[0];
         const endDate = viewEnd.toISOString().split('T')[0];
-
-        // console.log(`fetchSchedules ${startDate} ${endDate}`);
 
         // Define the mapping between position types and CSS classes
         const positionClassMap = {
@@ -795,84 +820,109 @@ window.HunkProScheduler = {
             'Wingman': 'hunkpro-shift-wingman'
         };
 
-        return new Promise((resolve, reject) => {
-            $.ajax({
-                "url": `https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records?filters[items][0][field_id]=field_60&filters[items][0][operator]=is%20on%20or%20after&filters[items][0][val]=${startDate}&filters[items][1][field_id]=field_60&filters[items][1][operator]=is%20on%20or%20before&filters[items][1][val]=${endDate}`,
-                "method": "GET",
-                "timeout": 0,
-                "headers": {
-                    "X-Tadabase-App-id": this.tb_app_id,
-                    "X-Tadabase-App-Key": this.tb_app_key,
-                    "X-Tadabase-App-Secret": this.tb_app_secret
-                },
-                "processData": false,
-                "mimeType": "multipart/form-data",
-                "contentType": false,
-                success: function (data) {
-                    const parsedData = JSON.parse(data);
-                    // console.log('Schedules raw data:', parsedData);
+        // Helper function to fetch a single page
+        const fetchPage = async (page) => {
+            console.log(`Schedules ::: fetchPage ${page}`);
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    "url": `https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records?filters[items][0][field_id]=field_60&filters[items][0][operator]=is%20on%20or%20after&filters[items][0][val]=${startDate}&filters[items][1][field_id]=field_60&filters[items][1][operator]=is%20on%20or%20before&filters[items][1][val]=${endDate}&limit=100&page=${page}`,
+                    "method": "GET",
+                    "timeout": 0,
+                    "headers": {
+                        "X-Tadabase-App-id": this.tb_app_id,
+                        "X-Tadabase-App-Key": this.tb_app_key,
+                        "X-Tadabase-App-Secret": this.tb_app_secret
+                    },
+                    "processData": false,
+                    "mimeType": "multipart/form-data",
+                    "contentType": false,
+                    success: function (data) {
+                        resolve(JSON.parse(data));
+                    },
+                    error: function (error) {
+                        reject(error);
+                    }
+                });
+            });
+        };
 
-                    const schedules = parsedData.items.map(item => {
-                        try {
-                            // Get the full position name
-                            let positionName = '';
-                            if (item.field_59_val &&
-                                Array.isArray(item.field_59_val) &&
-                                item.field_59_val[0] &&
-                                item.field_59_val[0].val) {
-                                positionName = item.field_59_val[0].val;
-                            } else {
-                                console.warn('Invalid position data for item:', item);
-                                positionName = 'Unknown Position';
-                            }
+        // Main function to handle pagination and combine results
+        return new Promise(async (resolve, reject) => {
+            try {
+                let allItems = [];
+                let currentPage = 1;
+                let totalPages = 1;
 
-                            // Get the CSS class based on position name
-                            const cssClass = positionClassMap[positionName] || 'hunkpro-shift-default';
-                            // console.log("fetchSchedules ::: item ::: ", item);
-                            // Ensure we have valid resourceId
-                            const resourceId = Array.isArray(item.field_58) ? item.field_58[0] : item.field_58;
-                            if (!resourceId) {
-                                console.warn('Missing resourceId for item:', item);
-                                return null;
-                            }
+                // First request to get initial data and total pages
+                const firstPageData = await fetchPage(currentPage);
+                totalPages = firstPageData.total_pages;
+                allItems = [...firstPageData.items];
 
-                            return {
-                                id: item.id,
-                                resourceId: resourceId,
-                                title: positionName,
-                                positionId: item.field_59,
-                                start: item.field_60,
-                                classNames: [cssClass],
-                                allDay: true,
-                                extendedProps: {
-                                    hasNotes: item.field_479 !== null && item.field_479 !== '',
-                                    publishStatus: item.field_478 || 'unknown',
-                                    tags: item.field_477 || [], // Add tags to extendedProps
-                                    notes: item.field_479,
-                                    tags2: item.field_477_val // Add tags full data from Schedule
-                                }
-                            };
-                        } catch (err) {
-                            console.error('Error processing schedule item:', err, item);
+                // Fetch remaining pages if any
+                while (currentPage < totalPages) {
+                    currentPage++;
+                    const nextPageData = await fetchPage(currentPage);
+                    allItems = [...allItems, ...nextPageData.items];
+                }
+
+                // Process all collected items
+                const schedules = allItems.map(item => {
+                    try {
+                        // Get the full position name
+                        let positionName = '';
+                        if (item.field_59_val &&
+                            Array.isArray(item.field_59_val) &&
+                            item.field_59_val[0] &&
+                            item.field_59_val[0].val) {
+                            positionName = item.field_59_val[0].val;
+                        } else {
+                            console.warn('Invalid position data for item:', item);
+                            positionName = 'Unknown Position';
+                        }
+
+                        // Get the CSS class based on position name
+                        const cssClass = positionClassMap[positionName] || 'hunkpro-shift-default';
+
+                        // Ensure we have valid resourceId
+                        const resourceId = Array.isArray(item.field_58) ? item.field_58[0] : item.field_58;
+                        if (!resourceId) {
+                            console.warn('Missing resourceId for item:', item);
                             return null;
                         }
-                    }).filter(schedule => schedule !== null);
 
-                    // console.log('Processed schedules:', schedules);
-                    resolve(schedules);
-                },
-                error: function (error) {
-                    console.error('Error fetching schedules:', error);
-                    reject(error);
-                }
-            });
+                        return {
+                            id: item.id,
+                            resourceId: resourceId,
+                            title: positionName,
+                            positionId: item.field_59,
+                            start: item.field_60,
+                            classNames: [cssClass],
+                            allDay: true,
+                            extendedProps: {
+                                hasNotes: item.field_479 !== null && item.field_479 !== '',
+                                publishStatus: item.field_478 || 'unknown',
+                                tags: item.field_477 || [],
+                                notes: item.field_479,
+                                tags2: item.field_477_val
+                            }
+                        };
+                    } catch (err) {
+                        console.error('Error processing schedule item:', err, item);
+                        return null;
+                    }
+                }).filter(schedule => schedule !== null);
+
+                resolve(schedules);
+
+            } catch (error) {
+                console.error('Error fetching schedules:', error);
+                reject(error);
+            }
         });
     },
     fetchAvailability: function () {
         const viewStart = this.calendar.view.activeStart;
         const viewEnd = this.calendar.view.activeEnd;
-
-        // console.log(`fetchAvailability ${viewStart} ${viewEnd}`);
 
         // Add buffer days
         const bufferStart = new Date(viewStart);
@@ -884,60 +934,87 @@ window.HunkProScheduler = {
         const startDate = bufferStart.toISOString().split('T')[0];
         const endDate = bufferEnd.toISOString().split('T')[0];
 
-        // console.log(`fetchAvailability ${startDate} ${endDate}`);
-
         const classMap = this.availabilityClassMap;
 
-        return new Promise((resolve, reject) => {
-            $.ajax({
-                "url": `https://api.tadabase.io/api/v1/data-tables/eykNOvrDY3/records?filters[items][0][field_id]=field_428-start&filters[items][0][operator]=is%20on%20or%20before&filters[items][0][val]=${endDate}&filters[items][1][field_id]=field_428-end&filters[items][1][operator]=is%20on%20or%20after&filters[items][1][val]=${startDate}&filters[items][2][field_id]=field_67&filters[items][2][operator]=is%20not&filters[items][2][val]=Regular%20Day%20Off`,
-                "method": "GET",
-                "timeout": 0,
-                "headers": {
-                    "X-Tadabase-App-id": this.tb_app_id,
-                    "X-Tadabase-App-Key": this.tb_app_key,
-                    "X-Tadabase-App-Secret": this.tb_app_secret
-                },
-                "processData": false,
-                "mimeType": "multipart/form-data",
-                "contentType": false,
-                success: (data) => {
-                    const parsedData = JSON.parse(data);
-                    const availability = parsedData.items.map(item => {
-                        try {
-                            const start = item.field_428.start.split(' ')[0];
-                            // Add one day to the end date to make it inclusive
-                            const endDate = new Date(item.field_428.end.split(' ')[0]);
-                            endDate.setDate(endDate.getDate() + 1);
-                            const end = endDate.toISOString().split('T')[0];
-
-                            // Get the availability type and find corresponding CSS class
-                            const availabilityType = item.field_67 || 'Regular Day Off';
-                            const cssClass = classMap[availabilityType] || 'hunkpro-unavailable-regular';
-
-                            return {
-                                id: item.id,
-                                resourceId: item.field_64[0],
-                                start: `${start}T00:00:00`,
-                                end: `${end}T00:00:00`,
-                                title: availabilityType,
-                                display: 'background',
-                                textColor: 'black',
-                                classNames: [cssClass, 'hunkpro-unavailable-text']
-                            };
-                        } catch (error) {
-                            console.error('Error processing availability item:', error, item);
-                            return null;
-                        }
-                    }).filter(event => event !== null);
-
-                    resolve(availability);
-                },
-                error: function (error) {
-                    console.error('Error fetching availability:', error);
-                    reject(error);
-                }
+        // Helper function to fetch a single page
+        const fetchPage = async (page) => {
+            console.log(`Availability ::: fetchPage ${page}`);
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    "url": `https://api.tadabase.io/api/v1/data-tables/eykNOvrDY3/records?filters[items][0][field_id]=field_428-start&filters[items][0][operator]=is%20on%20or%20before&filters[items][0][val]=${endDate}&filters[items][1][field_id]=field_428-end&filters[items][1][operator]=is%20on%20or%20after&filters[items][1][val]=${startDate}&filters[items][2][field_id]=field_67&filters[items][2][operator]=is%20not&filters[items][2][val]=Regular%20Day%20Off&limit=100&page=${page}`,
+                    "method": "GET",
+                    "timeout": 0,
+                    "headers": {
+                        "X-Tadabase-App-id": this.tb_app_id,
+                        "X-Tadabase-App-Key": this.tb_app_key,
+                        "X-Tadabase-App-Secret": this.tb_app_secret
+                    },
+                    "processData": false,
+                    "mimeType": "multipart/form-data",
+                    "contentType": false,
+                    success: function (data) {
+                        resolve(JSON.parse(data));
+                    },
+                    error: function (error) {
+                        reject(error);
+                    }
+                });
             });
+        };
+
+        // Main function to handle pagination and combine results
+        return new Promise(async (resolve, reject) => {
+            try {
+                let allItems = [];
+                let currentPage = 1;
+                let totalPages = 1;
+
+                // First request to get initial data and total pages
+                const firstPageData = await fetchPage(currentPage);
+                totalPages = firstPageData.total_pages;
+                allItems = [...firstPageData.items];
+
+                // Fetch remaining pages if any
+                while (currentPage < totalPages) {
+                    currentPage++;
+                    const nextPageData = await fetchPage(currentPage);
+                    allItems = [...allItems, ...nextPageData.items];
+                }
+
+                // Process all collected items
+                const availability = allItems.map(item => {
+                    try {
+                        const start = item.field_428.start.split(' ')[0];
+                        // Add one day to the end date to make it inclusive
+                        const endDate = new Date(item.field_428.end.split(' ')[0]);
+                        endDate.setDate(endDate.getDate() + 1);
+                        const end = endDate.toISOString().split('T')[0];
+
+                        // Get the availability type and find corresponding CSS class
+                        const availabilityType = item.field_67 || 'Regular Day Off';
+                        const cssClass = classMap[availabilityType] || 'hunkpro-unavailable-regular';
+
+                        return {
+                            id: item.id,
+                            resourceId: item.field_64[0],
+                            start: `${start}T00:00:00`,
+                            end: `${end}T00:00:00`,
+                            title: availabilityType,
+                            display: 'background',
+                            textColor: 'black',
+                            classNames: [cssClass, 'hunkpro-unavailable-text']
+                        };
+                    } catch (error) {
+                        console.error('Error processing availability item:', error, item);
+                        return null;
+                    }
+                }).filter(event => event !== null);
+
+                resolve(availability);
+            } catch (error) {
+                console.error('Error fetching availability:', error);
+                reject(error);
+            }
         });
     },
     fetchRegularDayOffs: function () {
