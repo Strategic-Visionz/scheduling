@@ -1,3 +1,128 @@
+const CacheUtility = {
+    // Cache configuration defaults
+    DEFAULT_DURATION: 3600000, // 1 hour in milliseconds
+    MAX_RETRIES: 3,
+    RETRY_DELAY: 1000, // 1 second
+
+    /**
+     * Get valid cached data for a given key
+     * @param {string} key - Cache key
+     * @param {number} duration - Cache duration in milliseconds
+     * @param {Function} validator - Function to validate cached data
+     * @returns {Object|null} The cached data or null if invalid/missing
+     */
+    getValidCache: function (key, duration, validator) {
+        try {
+            const cached = localStorage.getItem(key);
+            if (!cached) return null;
+
+            const { data, timestamp } = JSON.parse(cached);
+            const isExpired = Date.now() - timestamp > duration;
+
+            // Use provided validator or default to true
+            const isValidData = validator ? validator(data) : true;
+
+            return (!isExpired && isValidData) ? data : null;
+        } catch (error) {
+            console.warn(`Cache validation failed for ${key}:`, error);
+            localStorage.removeItem(key);
+            return null;
+        }
+    },
+
+    /**
+     * Update cache with new data
+     * @param {string} key - Cache key
+     * @param {any} data - Data to cache
+     */
+    updateCache: function (key, data) {
+        try {
+            const cacheData = {
+                data,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(key, JSON.stringify(cacheData));
+        } catch (error) {
+            console.warn(`Failed to update cache for ${key}:`, error);
+            if (error.name === 'QuotaExceededError') {
+                localStorage.clear();
+                try {
+                    localStorage.setItem(key, JSON.stringify(cacheData));
+                } catch (retryError) {
+                    console.error(`Failed to update cache after clearing for ${key}:`, retryError);
+                }
+            }
+        }
+    },
+
+    /**
+     * Make API call with retry logic
+     * @param {Function} apiCall - Function that makes the API call
+     * @param {number} retryCount - Current retry attempt
+     * @returns {Promise} Promise resolving to the API response
+     */
+    makeApiCallWithRetry: async function (apiCall, retryCount = 0) {
+        try {
+            return await apiCall();
+        } catch (error) {
+            if (retryCount < this.MAX_RETRIES) {
+                console.warn(`API call failed, retrying (${retryCount + 1}/${this.MAX_RETRIES})...`);
+                await new Promise(resolve => setTimeout(resolve, this.RETRY_DELAY * (retryCount + 1)));
+                return this.makeApiCallWithRetry(apiCall, retryCount + 1);
+            }
+            throw error;
+        }
+    },
+
+    /**
+     * Fetch data with caching
+     * @param {Object} config - Configuration object
+     * @returns {Promise} Promise resolving to the data
+     */
+    fetchWithCache: async function ({
+        cacheKey,
+        cacheDuration = this.DEFAULT_DURATION,
+        validator,
+        apiCall,
+        processData = (data) => data,
+        useExpiredCache = true
+    }) {
+        try {
+            // Check for valid cached data first
+            const cachedData = this.getValidCache(cacheKey, cacheDuration, validator);
+            if (cachedData) {
+                console.log(`Using cached data for ${cacheKey}`);
+                return processData(cachedData);
+            }
+
+            // If no valid cache, make API call
+            const data = await this.makeApiCallWithRetry(apiCall);
+            const processedData = processData(data);
+            this.updateCache(cacheKey, processedData);
+            console.log(`Fetched fresh data for ${cacheKey}`);
+            return processedData;
+
+        } catch (error) {
+            console.error(`Failed to fetch data for ${cacheKey}:`, error);
+
+            // If API fails and useExpiredCache is true, try to use expired cache as fallback
+            if (useExpiredCache) {
+                try {
+                    const expiredCache = localStorage.getItem(cacheKey);
+                    if (expiredCache) {
+                        const { data } = JSON.parse(expiredCache);
+                        return processData(data);
+                    }
+                } catch (cacheError) {
+                    console.error(`Failed to use expired cache for ${cacheKey}:`, cacheError);
+                }
+            }
+
+            throw error;
+        }
+    }
+};
+
 window.HunkProScheduler = {
     FullCalendar: null,
     calendar: null,
@@ -29,6 +154,7 @@ window.HunkProScheduler = {
 
     tagsTableData: [],
     tagStatistics: {},
+    pendingOperations: new Map(),
 
     countUnpublishedShifts: function () {
         const currentView = this.calendar.view;
@@ -596,38 +722,68 @@ window.HunkProScheduler = {
     },
 
     fetchTagsData: function () {
-        return new Promise((resolve, reject) => {
-            $.ajax({
-                "url": "https://api.tadabase.io/api/v1/data-tables/q3kjZVj6Vb/records?limit=100",
-                "method": "GET",
-                "timeout": 0,
-                "headers": {
-                    "X-Tadabase-App-id": this.tb_app_id,
-                    "X-Tadabase-App-Key": this.tb_app_key,
-                    "X-Tadabase-App-Secret": this.tb_app_secret
-                },
-                "processData": false,
-                "mimeType": "multipart/form-data",
-                "contentType": false,
-                success: (data) => {
-                    try {
-                        const parsedData = JSON.parse(data);
-                        // Store only the items array from the response
-                        this.tagsTableData = parsedData.items || [];
-                        // console.log('Tags data loaded:', this.tagsTableData);
-                        resolve(this.tagsTableData);
-                    } catch (error) {
-                        console.error('Error parsing tags data:', error);
-                        reject(error);
-                    }
-                },
-                error: (error) => {
-                    console.error('Error fetching tags data:', error);
-                    reject(error);
+        return CacheUtility.fetchWithCache({
+            cacheKey: 'tagsData',
+            cacheDuration: 3600000, // 1 hour
+            validator: (data) => Array.isArray(data) && data.every(item =>
+                item.hasOwnProperty('id') &&
+                item.hasOwnProperty('field_43') &&
+                item.hasOwnProperty('field_63')
+            ),
+            apiCall: async () => {
+                // Helper function to fetch a single page
+                const fetchPage = async (page) => {
+                    console.log(`Tags Data ::: fetchPage ${page}`);
+                    const response = await $.ajax({
+                        url: "https://api.tadabase.io/api/v1/data-tables/q3kjZVj6Vb/records",
+                        method: "GET",
+                        timeout: 5000,
+                        headers: {
+                            "X-Tadabase-App-id": this.tb_app_id,
+                            "X-Tadabase-App-Key": this.tb_app_key,
+                            "X-Tadabase-App-Secret": this.tb_app_secret
+                        },
+                        data: {
+                            limit: 100,
+                            page: page
+                        }
+                    });
+                    return typeof response === 'string' ? JSON.parse(response) : response;
+                };
+
+                let allItems = [];
+                let currentPage = 1;
+                let totalPages = 1;
+
+                // First request to get initial data and total pages
+                const firstPageData = await fetchPage(currentPage);
+                totalPages = firstPageData.total_pages;
+                allItems = [...firstPageData.items];
+
+                // Fetch remaining pages if any
+                while (currentPage < totalPages) {
+                    currentPage++;
+                    const nextPageData = await fetchPage(currentPage);
+                    allItems = [...allItems, ...nextPageData.items];
                 }
-            });
+
+                return allItems;
+            },
+            processData: (data) => {
+                this.tagsTableData = data; // Store in HunkProScheduler instance
+                return data;
+            },
+            useExpiredCache: true // Allow using expired cache as fallback
         });
     },
+
+    // Helper method to clear all caches (useful for debugging or force refresh)
+    clearCaches: function () {
+        localStorage.removeItem('employeesData');
+        localStorage.removeItem('tagsData');
+        console.log('All caches cleared');
+    },
+
 
 
     showFullScreenLoader: function () {
@@ -641,6 +797,11 @@ window.HunkProScheduler = {
         const loader = document.querySelector('.chhj-fullscreen-loader');
         if (loader) {
             loader.style.display = 'none';
+
+            // Calculate and log the total load time
+            const loadEndTime = performance.now();
+            const totalLoadTime = loadEndTime - window.pageLoadStart;
+            console.log(`Total Page Load Time: ${totalLoadTime.toFixed(2)}ms (${(totalLoadTime / 1000).toFixed(2)} seconds)`);
         }
     },
 
@@ -656,7 +817,7 @@ window.HunkProScheduler = {
                 document.head.appendChild(jqueryScript);
             });
 
-            await this.fetchTagsData();
+
 
             // Load FullCalendar
             await new Promise((resolve) => {
@@ -670,8 +831,17 @@ window.HunkProScheduler = {
                 document.head.appendChild(scriptElement);
             });
 
+
+            // await this.fetchTagsData();
+
             // Load initial data
-            const employees = await this.fetchEmployees();
+            // const employees = await this.fetchEmployees();
+
+            const [tagsData, employees] = await Promise.all([
+                this.fetchTagsData(),
+                this.fetchEmployees()
+            ]);
+
             this.initializeCalendar(employees);
 
             // Makes sure that the refresh event finishes
@@ -734,53 +904,93 @@ window.HunkProScheduler = {
     },
 
     fetchEmployees: function () {
-        return new Promise((resolve, reject) => {
-            $.ajax({
-                "url": `https://api.tadabase.io/api/v1/data-tables/4MXQJdrZ6v/records?filters[items][0][field_id]=field_427&filters[items][0][operator]=contains_any&filters[items][0][val]=Truck Operations&filters[items][1][field_id]=status&filters[items][1][operator]=is&filters[items][1][val]=Active&limit=100&page=1`,
-                "method": "GET",
-                "timeout": 0,
-                "headers": {
-                    "X-Tadabase-App-id": this.tb_app_id,
-                    "X-Tadabase-App-Key": this.tb_app_key,
-                    "X-Tadabase-App-Secret": this.tb_app_secret
-                },
-                "processData": false,
-                "mimeType": "multipart/form-data",
-                "contentType": false,
-                success: function (data) {
-                    const parsedData = JSON.parse(data);
-                    // console.log('Employees', parsedData);
-                    const users = parsedData.items.map(item => ({
+        return CacheUtility.fetchWithCache({
+            cacheKey: 'employeesData',
+            cacheDuration: 1800000, // 30 minutes
+            validator: (data) => Array.isArray(data) && data.every(item =>
+                item.hasOwnProperty('id') &&
+                item.hasOwnProperty('title') &&
+                item.hasOwnProperty('extendedProps')
+            ),
+            apiCall: async () => {
+                // Helper function to fetch a single page
+                const fetchPage = async (page) => {
+                    console.log(`Employees ::: fetchPage ${page}`);
+                    const response = await $.ajax({
+                        url: `https://api.tadabase.io/api/v1/data-tables/4MXQJdrZ6v/records`,
+                        method: "GET",
+                        timeout: 0,
+                        headers: {
+                            "X-Tadabase-App-id": this.tb_app_id,
+                            "X-Tadabase-App-Key": this.tb_app_key,
+                            "X-Tadabase-App-Secret": this.tb_app_secret
+                        },
+                        data: {
+                            filters: {
+                                items: [{
+                                    field_id: 'field_427',
+                                    operator: 'contains_any',
+                                    val: 'Truck Operations'
+                                }, {
+                                    field_id: 'status',
+                                    operator: 'is',
+                                    val: 'Active'
+                                }]
+                            },
+                            limit: 100,
+                            page: page
+                        }
+                    });
+                    return typeof response === 'string' ? JSON.parse(response) : response;
+                };
+
+                let allItems = [];
+                let currentPage = 1;
+                let totalPages = 1;
+
+                // First request to get initial data and total pages
+                const firstPageData = await fetchPage(currentPage);
+                totalPages = firstPageData.total_pages;
+                allItems = [...firstPageData.items];
+
+                // Fetch remaining pages if any
+                while (currentPage < totalPages) {
+                    currentPage++;
+                    const nextPageData = await fetchPage(currentPage);
+                    allItems = [...allItems, ...nextPageData.items];
+                }
+
+                return allItems;
+            },
+            processData: (items) => {
+                return items.map(item => {
+                    let employee = {
                         id: item.id,
-                        title: item.name,
-                        extendedProps: {
+                        title: item.cached ? item.title : item.name,
+                        extendedProps: item.cached ? item.extendedProps : {
                             department: item.field_427 || [],
                             status: item.status,
                             weeklyShifts: 0,
                             position: item.field_395_val,
                             tags: item.field_62_val || []
-                        }
-                    }));
-                    resolve(users);
-                },
-                error: function (error) {
-                    console.error('Error fetching employees:', error);
-                    reject(error);
-                }
-            });
+                        },
+                        cached: true
+                    };
+                    // console.log('processData: employee', employee);
+                    return employee;
+                });
+            },
+            useExpiredCache: true // Allow using expired cache as fallback
         });
     },
+
 
     fetchSchedules: function () {
         const viewStart = this.calendar.view.activeStart;
         const viewEnd = this.calendar.view.activeEnd;
 
-        // console.log(`fetchSchedules ${viewStart} ${viewEnd}`);
-
         const startDate = viewStart.toISOString().split('T')[0];
         const endDate = viewEnd.toISOString().split('T')[0];
-
-        // console.log(`fetchSchedules ${startDate} ${endDate}`);
 
         // Define the mapping between position types and CSS classes
         const positionClassMap = {
@@ -794,84 +1004,109 @@ window.HunkProScheduler = {
             'Wingman': 'hunkpro-shift-wingman'
         };
 
-        return new Promise((resolve, reject) => {
-            $.ajax({
-                "url": `https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records?filters[items][0][field_id]=field_60&filters[items][0][operator]=is%20on%20or%20after&filters[items][0][val]=${startDate}&filters[items][1][field_id]=field_60&filters[items][1][operator]=is%20on%20or%20before&filters[items][1][val]=${endDate}`,
-                "method": "GET",
-                "timeout": 0,
-                "headers": {
-                    "X-Tadabase-App-id": this.tb_app_id,
-                    "X-Tadabase-App-Key": this.tb_app_key,
-                    "X-Tadabase-App-Secret": this.tb_app_secret
-                },
-                "processData": false,
-                "mimeType": "multipart/form-data",
-                "contentType": false,
-                success: function (data) {
-                    const parsedData = JSON.parse(data);
-                    // console.log('Schedules raw data:', parsedData);
+        // Helper function to fetch a single page
+        const fetchPage = async (page) => {
+            console.log(`Schedules ::: fetchPage ${page}`);
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    "url": `https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records?filters[items][0][field_id]=field_60&filters[items][0][operator]=is%20on%20or%20after&filters[items][0][val]=${startDate}&filters[items][1][field_id]=field_60&filters[items][1][operator]=is%20on%20or%20before&filters[items][1][val]=${endDate}&limit=100&page=${page}`,
+                    "method": "GET",
+                    "timeout": 0,
+                    "headers": {
+                        "X-Tadabase-App-id": this.tb_app_id,
+                        "X-Tadabase-App-Key": this.tb_app_key,
+                        "X-Tadabase-App-Secret": this.tb_app_secret
+                    },
+                    "processData": false,
+                    "mimeType": "multipart/form-data",
+                    "contentType": false,
+                    success: function (data) {
+                        resolve(JSON.parse(data));
+                    },
+                    error: function (error) {
+                        reject(error);
+                    }
+                });
+            });
+        };
 
-                    const schedules = parsedData.items.map(item => {
-                        try {
-                            // Get the full position name
-                            let positionName = '';
-                            if (item.field_59_val &&
-                                Array.isArray(item.field_59_val) &&
-                                item.field_59_val[0] &&
-                                item.field_59_val[0].val) {
-                                positionName = item.field_59_val[0].val;
-                            } else {
-                                console.warn('Invalid position data for item:', item);
-                                positionName = 'Unknown Position';
-                            }
+        // Main function to handle pagination and combine results
+        return new Promise(async (resolve, reject) => {
+            try {
+                let allItems = [];
+                let currentPage = 1;
+                let totalPages = 1;
 
-                            // Get the CSS class based on position name
-                            const cssClass = positionClassMap[positionName] || 'hunkpro-shift-default';
-                            // console.log("fetchSchedules ::: item ::: ", item);
-                            // Ensure we have valid resourceId
-                            const resourceId = Array.isArray(item.field_58) ? item.field_58[0] : item.field_58;
-                            if (!resourceId) {
-                                console.warn('Missing resourceId for item:', item);
-                                return null;
-                            }
+                // First request to get initial data and total pages
+                const firstPageData = await fetchPage(currentPage);
+                totalPages = firstPageData.total_pages;
+                allItems = [...firstPageData.items];
 
-                            return {
-                                id: item.id,
-                                resourceId: resourceId,
-                                title: positionName,
-                                positionId: item.field_59,
-                                start: item.field_60,
-                                classNames: [cssClass],
-                                allDay: true,
-                                extendedProps: {
-                                    hasNotes: item.field_479 !== null && item.field_479 !== '',
-                                    publishStatus: item.field_478 || 'unknown',
-                                    tags: item.field_477 || [], // Add tags to extendedProps
-                                    notes: item.field_479,
-                                    tags2: item.field_477_val // Add tags full data from Schedule
-                                }
-                            };
-                        } catch (err) {
-                            console.error('Error processing schedule item:', err, item);
+                // Fetch remaining pages if any
+                while (currentPage < totalPages) {
+                    currentPage++;
+                    const nextPageData = await fetchPage(currentPage);
+                    allItems = [...allItems, ...nextPageData.items];
+                }
+
+                // Process all collected items
+                const schedules = allItems.map(item => {
+                    try {
+                        // Get the full position name
+                        let positionName = '';
+                        if (item.field_59_val &&
+                            Array.isArray(item.field_59_val) &&
+                            item.field_59_val[0] &&
+                            item.field_59_val[0].val) {
+                            positionName = item.field_59_val[0].val;
+                        } else {
+                            console.warn('Invalid position data for item:', item);
+                            positionName = 'Unknown Position';
+                        }
+
+                        // Get the CSS class based on position name
+                        const cssClass = positionClassMap[positionName] || 'hunkpro-shift-default';
+
+                        // Ensure we have valid resourceId
+                        const resourceId = Array.isArray(item.field_58) ? item.field_58[0] : item.field_58;
+                        if (!resourceId) {
+                            console.warn('Missing resourceId for item:', item);
                             return null;
                         }
-                    }).filter(schedule => schedule !== null);
 
-                    // console.log('Processed schedules:', schedules);
-                    resolve(schedules);
-                },
-                error: function (error) {
-                    console.error('Error fetching schedules:', error);
-                    reject(error);
-                }
-            });
+                        return {
+                            id: item.id,
+                            resourceId: resourceId,
+                            title: positionName,
+                            positionId: item.field_59,
+                            start: item.field_60,
+                            classNames: [cssClass],
+                            allDay: true,
+                            extendedProps: {
+                                hasNotes: item.field_479 !== null && item.field_479 !== '',
+                                publishStatus: item.field_478 || 'unknown',
+                                tags: item.field_477 || [],
+                                notes: item.field_479,
+                                tags2: item.field_477_val
+                            }
+                        };
+                    } catch (err) {
+                        console.error('Error processing schedule item:', err, item);
+                        return null;
+                    }
+                }).filter(schedule => schedule !== null);
+
+                resolve(schedules);
+
+            } catch (error) {
+                console.error('Error fetching schedules:', error);
+                reject(error);
+            }
         });
     },
     fetchAvailability: function () {
         const viewStart = this.calendar.view.activeStart;
         const viewEnd = this.calendar.view.activeEnd;
-
-        // console.log(`fetchAvailability ${viewStart} ${viewEnd}`);
 
         // Add buffer days
         const bufferStart = new Date(viewStart);
@@ -883,60 +1118,87 @@ window.HunkProScheduler = {
         const startDate = bufferStart.toISOString().split('T')[0];
         const endDate = bufferEnd.toISOString().split('T')[0];
 
-        // console.log(`fetchAvailability ${startDate} ${endDate}`);
-
         const classMap = this.availabilityClassMap;
 
-        return new Promise((resolve, reject) => {
-            $.ajax({
-                "url": `https://api.tadabase.io/api/v1/data-tables/eykNOvrDY3/records?filters[items][0][field_id]=field_428-start&filters[items][0][operator]=is%20on%20or%20before&filters[items][0][val]=${endDate}&filters[items][1][field_id]=field_428-end&filters[items][1][operator]=is%20on%20or%20after&filters[items][1][val]=${startDate}&filters[items][2][field_id]=field_67&filters[items][2][operator]=is%20not&filters[items][2][val]=Regular%20Day%20Off`,
-                "method": "GET",
-                "timeout": 0,
-                "headers": {
-                    "X-Tadabase-App-id": this.tb_app_id,
-                    "X-Tadabase-App-Key": this.tb_app_key,
-                    "X-Tadabase-App-Secret": this.tb_app_secret
-                },
-                "processData": false,
-                "mimeType": "multipart/form-data",
-                "contentType": false,
-                success: (data) => {
-                    const parsedData = JSON.parse(data);
-                    const availability = parsedData.items.map(item => {
-                        try {
-                            const start = item.field_428.start.split(' ')[0];
-                            // Add one day to the end date to make it inclusive
-                            const endDate = new Date(item.field_428.end.split(' ')[0]);
-                            endDate.setDate(endDate.getDate() + 1);
-                            const end = endDate.toISOString().split('T')[0];
-
-                            // Get the availability type and find corresponding CSS class
-                            const availabilityType = item.field_67 || 'Regular Day Off';
-                            const cssClass = classMap[availabilityType] || 'hunkpro-unavailable-regular';
-
-                            return {
-                                id: item.id,
-                                resourceId: item.field_64[0],
-                                start: `${start}T00:00:00`,
-                                end: `${end}T00:00:00`,
-                                title: availabilityType,
-                                display: 'background',
-                                textColor: 'black',
-                                classNames: [cssClass, 'hunkpro-unavailable-text']
-                            };
-                        } catch (error) {
-                            console.error('Error processing availability item:', error, item);
-                            return null;
-                        }
-                    }).filter(event => event !== null);
-
-                    resolve(availability);
-                },
-                error: function (error) {
-                    console.error('Error fetching availability:', error);
-                    reject(error);
-                }
+        // Helper function to fetch a single page
+        const fetchPage = async (page) => {
+            console.log(`Availability ::: fetchPage ${page}`);
+            return new Promise((resolve, reject) => {
+                $.ajax({
+                    "url": `https://api.tadabase.io/api/v1/data-tables/eykNOvrDY3/records?filters[items][0][field_id]=field_428-start&filters[items][0][operator]=is%20on%20or%20before&filters[items][0][val]=${endDate}&filters[items][1][field_id]=field_428-end&filters[items][1][operator]=is%20on%20or%20after&filters[items][1][val]=${startDate}&filters[items][2][field_id]=field_67&filters[items][2][operator]=is%20not&filters[items][2][val]=Regular%20Day%20Off&limit=100&page=${page}`,
+                    "method": "GET",
+                    "timeout": 0,
+                    "headers": {
+                        "X-Tadabase-App-id": this.tb_app_id,
+                        "X-Tadabase-App-Key": this.tb_app_key,
+                        "X-Tadabase-App-Secret": this.tb_app_secret
+                    },
+                    "processData": false,
+                    "mimeType": "multipart/form-data",
+                    "contentType": false,
+                    success: function (data) {
+                        resolve(JSON.parse(data));
+                    },
+                    error: function (error) {
+                        reject(error);
+                    }
+                });
             });
+        };
+
+        // Main function to handle pagination and combine results
+        return new Promise(async (resolve, reject) => {
+            try {
+                let allItems = [];
+                let currentPage = 1;
+                let totalPages = 1;
+
+                // First request to get initial data and total pages
+                const firstPageData = await fetchPage(currentPage);
+                totalPages = firstPageData.total_pages;
+                allItems = [...firstPageData.items];
+
+                // Fetch remaining pages if any
+                while (currentPage < totalPages) {
+                    currentPage++;
+                    const nextPageData = await fetchPage(currentPage);
+                    allItems = [...allItems, ...nextPageData.items];
+                }
+
+                // Process all collected items
+                const availability = allItems.map(item => {
+                    try {
+                        const start = item.field_428.start.split(' ')[0];
+                        // Add one day to the end date to make it inclusive
+                        const endDate = new Date(item.field_428.end.split(' ')[0]);
+                        endDate.setDate(endDate.getDate() + 1);
+                        const end = endDate.toISOString().split('T')[0];
+
+                        // Get the availability type and find corresponding CSS class
+                        const availabilityType = item.field_67 || 'Regular Day Off';
+                        const cssClass = classMap[availabilityType] || 'hunkpro-unavailable-regular';
+
+                        return {
+                            id: item.id,
+                            resourceId: item.field_64[0],
+                            start: `${start}T00:00:00`,
+                            end: `${end}T00:00:00`,
+                            title: availabilityType,
+                            display: 'background',
+                            textColor: 'black',
+                            classNames: [cssClass, 'hunkpro-unavailable-text']
+                        };
+                    } catch (error) {
+                        console.error('Error processing availability item:', error, item);
+                        return null;
+                    }
+                }).filter(event => event !== null);
+
+                resolve(availability);
+            } catch (error) {
+                console.error('Error fetching availability:', error);
+                reject(error);
+            }
         });
     },
     fetchRegularDayOffs: function () {
@@ -1576,12 +1838,15 @@ window.HunkProScheduler = {
                 }
             },
 
+            // Update the eventContent function in the calendar initialization
             eventContent: (arg) => {
                 if (arg.event.display !== 'background') {
                     const hasNotes = arg.event.extendedProps.hasNotes || false;
                     const publishStatus = arg.event.extendedProps.publishStatus || 'unknown';
                     const tags = arg.event.extendedProps.tags2 || [];
+                    const syncStatus = arg.event.extendedProps?.syncStatus;
 
+                    // Get status icon info (existing function remains the same)
                     const getStatusIconInfo = (status) => {
                         switch (status) {
                             case 'Not Published':
@@ -1611,41 +1876,24 @@ window.HunkProScheduler = {
                         }
                     };
 
-                    // console.log('tags :::', tags);
-
                     const statusInfo = getStatusIconInfo(publishStatus);
 
-                    // console.log('this.tagsTableData', this.tagsTableData);
-                    // console.log('tags', tags);
-                    const processedTags = tags
-                        .map(tag => {
-                            // 
+                    // Updated tags processing to handle both initial and refreshed states
+                    let processedTags = [];
+                    if (Array.isArray(tags)) {
+                        processedTags = tags.map(tag => {
+                            // Handle both direct tag objects and tag references
+                            const tagId = tag.id || tag;
+                            const tagData = window.HunkProScheduler.tagsTableData.find(t => t.id === tagId);
 
-                            // Find the full tag data from tagsTableData
-                            const tagData = this.tagsTableData.find(t =>
-                                tag.id === t.id
-                            );
+                            return {
+                                id: tagId,
+                                label: tag.val || (tagData ? tagData.field_43 : ''),
+                                type: tagData?.field_63?.toLowerCase() || ''
+                            };
+                        }).filter(tag => tag.label); // Filter out any tags without labels
+                    }
 
-                            // console.log(`Tag Data :`, tagData);
-
-                            // console.log(`Tag ID: ${tag.id}`, {
-                            //     id: tag.id,
-                            //     label: tag.val,
-                            //     type: tagData?.field_63?.toLowerCase() || '' // 'Tier' or 'Resource'
-                            // });
-
-                            if (tag) {
-                                return {
-                                    id: tag.id,
-                                    label: tag.val,
-                                    type: tagData?.field_63?.toLowerCase() || '' // 'Tier' or 'Resource'
-                                };
-                            }
-                            return null;
-                        })
-                        .filter(tag => tag !== null);
-
-                    // Create tags HTML if tags exist
                     const tagsHtml = processedTags.length > 0 ? `
                         <div class="hunkpro-event-tags">
                             ${processedTags.map(tag => `
@@ -1653,6 +1901,12 @@ window.HunkProScheduler = {
                                     ${tag.label}
                                 </span>
                             `).join('')}
+                        </div>
+                    ` : '';
+
+                    const syncStatusHtml = syncStatus ? `
+                        <div class="sync-status-indicator">
+                            <div class="sync-${syncStatus}"></div>
                         </div>
                     ` : '';
 
@@ -1677,6 +1931,7 @@ window.HunkProScheduler = {
                                     </div>
                                 </div>
                                 ${tagsHtml}
+                                ${syncStatusHtml}
                             </div>
                         `
                     };
@@ -2978,13 +3233,27 @@ window.HunkProScheduler = {
 
     },
 
-    // Update handleFormSubmit to use Bootstrap modal
+    // Generate a unique operation ID
+    generateOperationId: function () {
+        return `op-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    },
+
+    // Track an operation and its associated event
+    trackOperation: function (operationId, event, type) {
+        this.pendingOperations.set(operationId, {
+            event,
+            type,
+            status: 'pending',
+            timestamp: Date.now()
+        });
+    },
+
+    // Update handleFormSubmit with improved event tracking
     handleFormSubmit: async function () {
         const modal = document.getElementById('hunkpro-shift-modal');
         const position = document.getElementById('hunkpro-shift-position').value;
         const notesInput = document.getElementById('hunkpro-shift-notes').value;
         const isAddMode = modal.dataset.mode === 'add';
-        console.log('isAddMode', isAddMode);
 
         const selectedTags = this.getSelectedTags();
         const tagIds = selectedTags.map(tag => tag.id);
@@ -2996,57 +3265,144 @@ window.HunkProScheduler = {
             return;
         }
 
+        // Generate unique operation ID
+        const operationId = this.generateOperationId();
+
         try {
             this.toggleLoader(true, isAddMode ? 'Adding Shift...' : 'Updating Shift...');
 
+            const positionDisplayText = $('#hunkpro-shift-position option:selected').text();
+            const selectedDate = this.datePicker.formatDate(
+                this.datePicker.selectedDates[0],
+                "Y-m-d"
+            );
+
+            // Get existing event's publish status - inlined from previous helper
+            const getPublishStatus = () => {
+                if (isAddMode) return 'Not Published';
+                const event = this.calendar.getEventById(modal.dataset.eventId);
+                return event?.extendedProps?.publishStatus === 'Published' ? 'Re-Publish' : 'Not Published';
+            };
+
+            // Create event data
+            const eventData = {
+                id: operationId, // Use operation ID as temporary event ID
+                resourceId: modal.dataset.resourceId,
+                title: positionDisplayText,
+                start: selectedDate,
+                allDay: true,
+                classNames: [`hunkpro-shift-${positionDisplayText.toLowerCase().replace(/\s+/g, '')}`],
+                extendedProps: {
+                    publishStatus: getPublishStatus(),
+                    hasNotes: notesInput.trim().length > 0,
+                    notes: notesInput,
+                    tags: tagIds,
+                    tags2: selectedTags,
+                    syncStatus: 'syncing',
+                    positionId: [position],
+                    operationId // Store operation ID in event props
+                }
+            };
+
+            let calendarEvent;
+
             if (isAddMode) {
-                const selectedDate = this.datePicker.formatDate(
-                    this.datePicker.selectedDates[0],
-                    "Y-m-d"
-                );
-                const newShift = {
+                // Add temporary event
+                calendarEvent = this.calendar.addEvent(eventData);
+                this.trackOperation(operationId, calendarEvent, 'add');
+                // throw new Error('Forced error for testing');
+            } else {
+                // Update existing event - inlined from previous helper
+                const existingEvent = this.calendar.getEventById(modal.dataset.eventId);
+                if (existingEvent) {
+                    this.trackOperation(operationId, existingEvent, 'update');
+                    // throw new Error('Forced error for testing');
+
+                    // Update event properties
+                    existingEvent.setProp('title', eventData.title);
+                    existingEvent.setProp('start', eventData.start);
+                    existingEvent.setProp('allDay', true);
+
+                    if (existingEvent._def) {
+                        existingEvent._def.classNames = eventData.classNames;
+                    }
+
+                    Object.keys(eventData.extendedProps).forEach(key => {
+                        existingEvent.setExtendedProp(key, eventData.extendedProps[key]);
+                    });
+
+                    calendarEvent = existingEvent;
+                }
+            }
+
+            // Close modal early to prevent interference
+            const bsModal = bootstrap.Modal.getInstance(modal);
+            bsModal.hide();
+
+            // Make API call
+            if (isAddMode) {
+                await this.addShift({
+                    operationId,
                     user: modal.dataset.resourceId,
                     position: position,
                     date: selectedDate,
                     tags: tagIds,
                     notes: notesInput
-                };
-
-                await this.addShift(newShift);
+                });
             } else {
-                const event = this.calendar.getEventById(modal.dataset.eventId);
-                const selectedDate = this.datePicker.formatDate(
-                    this.datePicker.selectedDates[0],
-                    "Y-m-d"
-                );
-
-                // Get current publish status from event
-                let publishStatus = event.extendedProps.publishStatus || 'Not Published';
-                // if currently published, make sure to tag as Re-Publish
-                publishStatus = publishStatus === 'Published' ? 'Re-Publish' : publishStatus
-
                 await this.updateShift({
-                    id: event?.id || '',
+                    operationId,
+                    id: modal.dataset.eventId,
                     date: selectedDate,
-                    position: $('#hunkpro-shift-position').val() || '',
+                    position: position,
                     tags: tagIds,
                     notes: notesInput,
-                    publishStatus: publishStatus
+                    publishStatus: eventData.extendedProps.publishStatus
                 });
             }
 
-            // Close modal before refresh to prevent UI lag
-            const bsModal = bootstrap.Modal.getInstance(modal);
-            bsModal.hide();
+            // Update operation status
+            this.pendingOperations.get(operationId).status = 'success';
 
-            // Refresh events after modal is closed
+            // Update the event after successful API call
+            if (calendarEvent && !calendarEvent.isDeleted) {
+                calendarEvent.setExtendedProp('syncStatus', 'synced');
+                // Remove temporary operation ID after success
+                setTimeout(() => {
+                    calendarEvent.setExtendedProp('operationId', null);
+                }, 1000);
+            }
+
+            this.updateAllCounts();
             await this.refreshEvents();
 
         } catch (error) {
             console.error('Error handling form submit:', error);
+
+            // Find event by operation ID
+            const operation = this.pendingOperations.get(operationId);
+            if (operation && operation.event && !operation.event.isDeleted) {
+                operation.event.setExtendedProp('syncStatus', 'error');
+
+                // Handle cleanup after error display
+                setTimeout(() => {
+                    if (isAddMode) {
+                        operation.event.remove();
+                    } else if (operation.event && !operation.event.isDeleted) {
+                        operation.event.setExtendedProp('syncStatus', null);
+                    }
+                }, 3000);
+            }
+
             this.toggleLoader(false);
             this.showError('Failed to save shift. Please try again.');
+
         } finally {
+            // Cleanup operation after delay
+            setTimeout(() => {
+                this.pendingOperations.delete(operationId);
+            }, 5000);
+
             this.clearAllOverrides();
         }
     },
