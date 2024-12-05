@@ -1,3 +1,128 @@
+const CacheUtility = {
+    // Cache configuration defaults
+    DEFAULT_DURATION: 3600000, // 1 hour in milliseconds
+    MAX_RETRIES: 3,
+    RETRY_DELAY: 1000, // 1 second
+
+    /**
+     * Get valid cached data for a given key
+     * @param {string} key - Cache key
+     * @param {number} duration - Cache duration in milliseconds
+     * @param {Function} validator - Function to validate cached data
+     * @returns {Object|null} The cached data or null if invalid/missing
+     */
+    getValidCache: function (key, duration, validator) {
+        try {
+            const cached = localStorage.getItem(key);
+            if (!cached) return null;
+
+            const { data, timestamp } = JSON.parse(cached);
+            const isExpired = Date.now() - timestamp > duration;
+
+            // Use provided validator or default to true
+            const isValidData = validator ? validator(data) : true;
+
+            return (!isExpired && isValidData) ? data : null;
+        } catch (error) {
+            console.warn(`Cache validation failed for ${key}:`, error);
+            localStorage.removeItem(key);
+            return null;
+        }
+    },
+
+    /**
+     * Update cache with new data
+     * @param {string} key - Cache key
+     * @param {any} data - Data to cache
+     */
+    updateCache: function (key, data) {
+        try {
+            const cacheData = {
+                data,
+                timestamp: Date.now()
+            };
+            localStorage.setItem(key, JSON.stringify(cacheData));
+        } catch (error) {
+            console.warn(`Failed to update cache for ${key}:`, error);
+            if (error.name === 'QuotaExceededError') {
+                localStorage.clear();
+                try {
+                    localStorage.setItem(key, JSON.stringify(cacheData));
+                } catch (retryError) {
+                    console.error(`Failed to update cache after clearing for ${key}:`, retryError);
+                }
+            }
+        }
+    },
+
+    /**
+     * Make API call with retry logic
+     * @param {Function} apiCall - Function that makes the API call
+     * @param {number} retryCount - Current retry attempt
+     * @returns {Promise} Promise resolving to the API response
+     */
+    makeApiCallWithRetry: async function (apiCall, retryCount = 0) {
+        try {
+            return await apiCall();
+        } catch (error) {
+            if (retryCount < this.MAX_RETRIES) {
+                console.warn(`API call failed, retrying (${retryCount + 1}/${this.MAX_RETRIES})...`);
+                await new Promise(resolve => setTimeout(resolve, this.RETRY_DELAY * (retryCount + 1)));
+                return this.makeApiCallWithRetry(apiCall, retryCount + 1);
+            }
+            throw error;
+        }
+    },
+
+    /**
+     * Fetch data with caching
+     * @param {Object} config - Configuration object
+     * @returns {Promise} Promise resolving to the data
+     */
+    fetchWithCache: async function ({
+        cacheKey,
+        cacheDuration = this.DEFAULT_DURATION,
+        validator,
+        apiCall,
+        processData = (data) => data,
+        useExpiredCache = true
+    }) {
+        try {
+            // Check for valid cached data first
+            const cachedData = this.getValidCache(cacheKey, cacheDuration, validator);
+            if (cachedData) {
+                console.log(`Using cached data for ${cacheKey}`);
+                return processData(cachedData);
+            }
+
+            // If no valid cache, make API call
+            const data = await this.makeApiCallWithRetry(apiCall);
+            const processedData = processData(data);
+            this.updateCache(cacheKey, processedData);
+            console.log(`Fetched fresh data for ${cacheKey}`);
+            return processedData;
+
+        } catch (error) {
+            console.error(`Failed to fetch data for ${cacheKey}:`, error);
+
+            // If API fails and useExpiredCache is true, try to use expired cache as fallback
+            if (useExpiredCache) {
+                try {
+                    const expiredCache = localStorage.getItem(cacheKey);
+                    if (expiredCache) {
+                        const { data } = JSON.parse(expiredCache);
+                        return processData(data);
+                    }
+                } catch (cacheError) {
+                    console.error(`Failed to use expired cache for ${cacheKey}:`, cacheError);
+                }
+            }
+
+            throw error;
+        }
+    }
+};
+
 window.HunkProScheduler = {
     FullCalendar: null,
     calendar: null,
@@ -597,38 +722,68 @@ window.HunkProScheduler = {
     },
 
     fetchTagsData: function () {
-        return new Promise((resolve, reject) => {
-            $.ajax({
-                "url": "https://api.tadabase.io/api/v1/data-tables/q3kjZVj6Vb/records?limit=100",
-                "method": "GET",
-                "timeout": 0,
-                "headers": {
-                    "X-Tadabase-App-id": this.tb_app_id,
-                    "X-Tadabase-App-Key": this.tb_app_key,
-                    "X-Tadabase-App-Secret": this.tb_app_secret
-                },
-                "processData": false,
-                "mimeType": "multipart/form-data",
-                "contentType": false,
-                success: (data) => {
-                    try {
-                        const parsedData = JSON.parse(data);
-                        // Store only the items array from the response
-                        this.tagsTableData = parsedData.items || [];
-                        // console.log('Tags data loaded:', this.tagsTableData);
-                        resolve(this.tagsTableData);
-                    } catch (error) {
-                        console.error('Error parsing tags data:', error);
-                        reject(error);
-                    }
-                },
-                error: (error) => {
-                    console.error('Error fetching tags data:', error);
-                    reject(error);
+        return CacheUtility.fetchWithCache({
+            cacheKey: 'tagsData',
+            cacheDuration: 3600000, // 1 hour
+            validator: (data) => Array.isArray(data) && data.every(item =>
+                item.hasOwnProperty('id') &&
+                item.hasOwnProperty('field_43') &&
+                item.hasOwnProperty('field_63')
+            ),
+            apiCall: async () => {
+                // Helper function to fetch a single page
+                const fetchPage = async (page) => {
+                    console.log(`Tags Data ::: fetchPage ${page}`);
+                    const response = await $.ajax({
+                        url: "https://api.tadabase.io/api/v1/data-tables/q3kjZVj6Vb/records",
+                        method: "GET",
+                        timeout: 5000,
+                        headers: {
+                            "X-Tadabase-App-id": this.tb_app_id,
+                            "X-Tadabase-App-Key": this.tb_app_key,
+                            "X-Tadabase-App-Secret": this.tb_app_secret
+                        },
+                        data: {
+                            limit: 100,
+                            page: page
+                        }
+                    });
+                    return typeof response === 'string' ? JSON.parse(response) : response;
+                };
+
+                let allItems = [];
+                let currentPage = 1;
+                let totalPages = 1;
+
+                // First request to get initial data and total pages
+                const firstPageData = await fetchPage(currentPage);
+                totalPages = firstPageData.total_pages;
+                allItems = [...firstPageData.items];
+
+                // Fetch remaining pages if any
+                while (currentPage < totalPages) {
+                    currentPage++;
+                    const nextPageData = await fetchPage(currentPage);
+                    allItems = [...allItems, ...nextPageData.items];
                 }
-            });
+
+                return allItems;
+            },
+            processData: (data) => {
+                this.tagsTableData = data; // Store in HunkProScheduler instance
+                return data;
+            },
+            useExpiredCache: true // Allow using expired cache as fallback
         });
     },
+
+    // Helper method to clear all caches (useful for debugging or force refresh)
+    clearCaches: function () {
+        localStorage.removeItem('employeesData');
+        localStorage.removeItem('tagsData');
+        console.log('All caches cleared');
+    },
+
 
 
     showFullScreenLoader: function () {
@@ -642,6 +797,11 @@ window.HunkProScheduler = {
         const loader = document.querySelector('.chhj-fullscreen-loader');
         if (loader) {
             loader.style.display = 'none';
+
+            // Calculate and log the total load time
+            const loadEndTime = performance.now();
+            const totalLoadTime = loadEndTime - window.pageLoadStart;
+            console.log(`Total Page Load Time: ${totalLoadTime.toFixed(2)}ms (${(totalLoadTime / 1000).toFixed(2)} seconds)`);
         }
     },
 
@@ -657,7 +817,7 @@ window.HunkProScheduler = {
                 document.head.appendChild(jqueryScript);
             });
 
-            await this.fetchTagsData();
+
 
             // Load FullCalendar
             await new Promise((resolve) => {
@@ -671,8 +831,17 @@ window.HunkProScheduler = {
                 document.head.appendChild(scriptElement);
             });
 
+
+            // await this.fetchTagsData();
+
             // Load initial data
-            const employees = await this.fetchEmployees();
+            // const employees = await this.fetchEmployees();
+
+            const [tagsData, employees] = await Promise.all([
+                this.fetchTagsData(),
+                this.fetchEmployees()
+            ]);
+
             this.initializeCalendar(employees);
 
             // Makes sure that the refresh event finishes
@@ -735,35 +904,46 @@ window.HunkProScheduler = {
     },
 
     fetchEmployees: function () {
-        // Helper function to fetch a single page
-        const fetchPage = async (page) => {
-            console.log(`Employees ::: fetchPage ${page}`);
-            return new Promise((resolve, reject) => {
-                $.ajax({
-                    "url": `https://api.tadabase.io/api/v1/data-tables/4MXQJdrZ6v/records?filters[items][0][field_id]=field_427&filters[items][0][operator]=contains_any&filters[items][0][val]=Truck Operations&filters[items][1][field_id]=status&filters[items][1][operator]=is&filters[items][1][val]=Active&limit=100&page=${page}`,
-                    "method": "GET",
-                    "timeout": 0,
-                    "headers": {
-                        "X-Tadabase-App-id": this.tb_app_id,
-                        "X-Tadabase-App-Key": this.tb_app_key,
-                        "X-Tadabase-App-Secret": this.tb_app_secret
-                    },
-                    "processData": false,
-                    "mimeType": "multipart/form-data",
-                    "contentType": false,
-                    success: function (data) {
-                        resolve(JSON.parse(data));
-                    },
-                    error: function (error) {
-                        reject(error);
-                    }
-                });
-            });
-        };
+        return CacheUtility.fetchWithCache({
+            cacheKey: 'employeesData',
+            cacheDuration: 1800000, // 30 minutes
+            validator: (data) => Array.isArray(data) && data.every(item =>
+                item.hasOwnProperty('id') &&
+                item.hasOwnProperty('title') &&
+                item.hasOwnProperty('extendedProps')
+            ),
+            apiCall: async () => {
+                // Helper function to fetch a single page
+                const fetchPage = async (page) => {
+                    console.log(`Employees ::: fetchPage ${page}`);
+                    const response = await $.ajax({
+                        url: `https://api.tadabase.io/api/v1/data-tables/4MXQJdrZ6v/records`,
+                        method: "GET",
+                        timeout: 0,
+                        headers: {
+                            "X-Tadabase-App-id": this.tb_app_id,
+                            "X-Tadabase-App-Key": this.tb_app_key,
+                            "X-Tadabase-App-Secret": this.tb_app_secret
+                        },
+                        data: {
+                            filters: {
+                                items: [{
+                                    field_id: 'field_427',
+                                    operator: 'contains_any',
+                                    val: 'Truck Operations'
+                                }, {
+                                    field_id: 'status',
+                                    operator: 'is',
+                                    val: 'Active'
+                                }]
+                            },
+                            limit: 100,
+                            page: page
+                        }
+                    });
+                    return typeof response === 'string' ? JSON.parse(response) : response;
+                };
 
-        // Main function to handle pagination and combine results
-        return new Promise(async (resolve, reject) => {
-            try {
                 let allItems = [];
                 let currentPage = 1;
                 let totalPages = 1;
@@ -780,26 +960,23 @@ window.HunkProScheduler = {
                     allItems = [...allItems, ...nextPageData.items];
                 }
 
-                // Process all collected items
-                const users = allItems.map(item => ({
-                    id: item.id,
-                    title: item.name,
-                    extendedProps: {
-                        department: item.field_427 || [],
-                        status: item.status,
-                        weeklyShifts: 0,
-                        position: item.field_395_val,
-                        tags: item.field_62_val || []
-                    }
-                }));
-
-                resolve(users);
-            } catch (error) {
-                console.error('Error fetching employees:', error);
-                reject(error);
-            }
+                return allItems;
+            },
+            processData: (items) => items.map(item => ({
+                id: item.id,
+                title: item.name,
+                extendedProps: {
+                    department: item.field_427 || [],
+                    status: item.status,
+                    weeklyShifts: 0,
+                    position: item.field_395_val,
+                    tags: item.field_62_val || []
+                }
+            })),
+            useExpiredCache: true // Allow using expired cache as fallback
         });
     },
+
 
     fetchSchedules: function () {
         const viewStart = this.calendar.view.activeStart;
