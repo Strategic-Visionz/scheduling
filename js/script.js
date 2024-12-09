@@ -152,6 +152,17 @@ window.HunkProScheduler = {
         'Suspension': 'hunkpro-unavailable-suspension'
     },
 
+    positionClassMap: {
+        'Closer': 'hunkpro-shift-closer',
+        'Morning Dispatch': 'hunkpro-shift-morningdispatch',
+        'Trainer': 'hunkpro-shift-trainer',
+        'Estimator': 'hunkpro-shift-estimator',
+        'Captain - Paperwork Only': 'hunkpro-shift-captainpaperworkonly',
+        'Captain - Driver Only': 'hunkpro-shift-captaindriveronly',
+        'Captain - Full': 'hunkpro-shift-captainfull',
+        'Wingman': 'hunkpro-shift-wingman'
+    },
+
     tagsTableData: [],
     tagStatistics: {},
     pendingOperations: new Map(),
@@ -311,13 +322,13 @@ window.HunkProScheduler = {
             const swalContent = document.createElement('div');
             swalContent.className = 'swal2-content';
             swalContent.innerHTML = `
-                <div class="publish-progress" style="margin-bottom: 1rem;">
-                    Publishing ${currentShift} of ${shiftsToPublish.length}
-                </div>
-                <progress class="swal2-progress-steps" value="0" max="100" style="width: 100%; margin-bottom: 1rem;"></progress>
-                <div class="publish-errors" style="color: #dc3545; text-align: left; font-size: 0.9em; max-height: 100px; overflow-y: auto; display: none;">
-                </div>
-            `;
+    <div class="publish-progress" style="margin-bottom: 1rem;">
+        Publishing ${currentShift} of ${shiftsToPublish.length}
+    </div>
+    <progress class="swal2-progress-steps" value="0" max="100" style="width: 100%; margin-bottom: 1rem;"></progress>
+    <div class="publish-errors" style="color: #dc3545; text-align: left; font-size: 0.9em; max-height: 100px; overflow-y: auto; display: none;">
+    </div>
+`;
 
             await Swal.fire({
                 title: 'Publishing Shifts',
@@ -343,8 +354,8 @@ window.HunkProScheduler = {
                         errorContainer.style.display = 'block';
                         errorContainer.innerHTML = errorLog.map(err =>
                             `<div style="margin-bottom: 0.5rem;">
-                                <strong>Error with shift ${err.shiftId}:</strong> ${err.message}
-                            </div>`
+                    <strong>Error with shift ${err.shiftId}:</strong> ${err.message}
+                </div>`
                         ).join('');
                     };
 
@@ -379,18 +390,18 @@ window.HunkProScheduler = {
                         await Swal.fire({
                             title: 'Publishing Complete with Errors',
                             html: `
-                                <div style="text-align: left;">
-                                    <p>Published ${shiftsToPublish.length - errorLog.length} of ${shiftsToPublish.length} shifts.</p>
-                                    <p>Failed to publish ${errorLog.length} shifts:</p>
-                                    <div style="max-height: 200px; overflow-y: auto; margin-top: 1rem;">
-                                        ${errorLog.map(err =>
+                    <div style="text-align: left;">
+                        <p>Published ${shiftsToPublish.length - errorLog.length} of ${shiftsToPublish.length} shifts.</p>
+                        <p>Failed to publish ${errorLog.length} shifts:</p>
+                        <div style="max-height: 200px; overflow-y: auto; margin-top: 1rem;">
+                            ${errorLog.map(err =>
                                 `<div style="margin-bottom: 0.5rem; color: #dc3545;">
-                                                <strong>Shift ${err.shiftId}:</strong> ${err.message}
-                                            </div>`
+                                    <strong>Shift ${err.shiftId}:</strong> ${err.message}
+                                </div>`
                             ).join('')}
-                                    </div>
-                                </div>
-                            `,
+                        </div>
+                    </div>
+                `,
                             icon: 'warning'
                         });
                     } else if (!processingCancelled) {
@@ -536,59 +547,59 @@ window.HunkProScheduler = {
         if (!hasServiceCategories && !hasTagCategories) return '';
 
         let html = `
-            <div class="tag-stats-popup" style="display: grid; grid-template-columns: 1fr 1px 1fr; gap: 16px; width: 450px;">
-                <!-- Service Categories Column -->
-                <div style="min-width: 0;">
-                    <h6 style="color: var(--chhj-orange); border-bottom: 2px solid var(--chhj-orange-light); padding-bottom: 8px; margin-bottom: 12px;">
-                        Service Categories
-                    </h6>
-                    ${hasServiceCategories ? Object.entries(stats.serviceCategories)
+<div class="tag-stats-popup" style="display: grid; grid-template-columns: 1fr 1px 1fr; gap: 16px; width: 450px;">
+    <!-- Service Categories Column -->
+    <div style="min-width: 0;">
+        <h6 style="color: var(--chhj-orange); border-bottom: 2px solid var(--chhj-orange-light); padding-bottom: 8px; margin-bottom: 12px;">
+            Service Categories
+        </h6>
+        ${hasServiceCategories ? Object.entries(stats.serviceCategories)
                 .filter(([category]) => category !== 'Uncategorized') // Filter out Uncategorized
                 .map(([category, data]) => `
-                            <div class="category-group" style="margin-bottom: 12px;">
-                                <div class="category-header" style="color: var(--chhj-orange); font-weight: 500; margin-bottom: 4px;">
-                                    ${category} (${data.total})
-                                </div>
-                                <div class="tag-list" style="padding-left: 12px;">
-                                    ${Object.entries(data.tags).map(([tag, count]) => `
-                                        <div class="tag-item" style="margin-bottom: 2px;">
-                                            <span style="color: var(--chhj-orange); font-weight: 600; font-size: 0.9em;">
-                                                ${count}
-                                            </span> - ${tag}
-                                        </div>
-                                    `).join('')}
-                                </div>
+                <div class="category-group" style="margin-bottom: 12px;">
+                    <div class="category-header" style="color: var(--chhj-orange); font-weight: 500; margin-bottom: 4px;">
+                        ${category} (${data.total})
+                    </div>
+                    <div class="tag-list" style="padding-left: 12px;">
+                        ${Object.entries(data.tags).map(([tag, count]) => `
+                            <div class="tag-item" style="margin-bottom: 2px;">
+                                <span style="color: var(--chhj-orange); font-weight: 600; font-size: 0.9em;">
+                                    ${count}
+                                </span> - ${tag}
                             </div>
-                        `).join('') : '<div style="color: #666;">No service categories available</div>'}
+                        `).join('')}
+                    </div>
                 </div>
+            `).join('') : '<div style="color: #666;">No service categories available</div>'}
+    </div>
 
-                <!-- Vertical Divider -->
-                <div style="background-color: #eee; height: 100%;"></div>
+    <!-- Vertical Divider -->
+    <div style="background-color: #eee; height: 100%;"></div>
 
-                <!-- Tag Categories Column -->
-                <div style="min-width: 0;">
-                    <h6 style="color: var(--chhj-green); border-bottom: 2px solid var(--chhj-green-light); padding-bottom: 8px; margin-bottom: 12px;">
-                        Tag Categories
-                    </h6>
-                    ${hasTagCategories ? Object.entries(stats.tagCategories).map(([category, data]) => `
-                        <div class="category-group" style="margin-bottom: 12px;">
-                            <div class="category-header" style="color: var(--chhj-green); font-weight: 500; margin-bottom: 4px;">
-                                ${category} (${data.total})
-                            </div>
-                            <div class="tag-list" style="padding-left: 12px;">
-                                ${Object.entries(data.tags).map(([tag, count]) => `
-                                    <div class="tag-item" style="margin-bottom: 2px;">
-                                        <span style="color: var(--chhj-green); font-weight: 600; font-size: 0.9em;">
-                                            ${count}
-                                        </span> - ${tag}
-                                    </div>
-                                `).join('')}
-                            </div>
+    <!-- Tag Categories Column -->
+    <div style="min-width: 0;">
+        <h6 style="color: var(--chhj-green); border-bottom: 2px solid var(--chhj-green-light); padding-bottom: 8px; margin-bottom: 12px;">
+            Tag Categories
+        </h6>
+        ${hasTagCategories ? Object.entries(stats.tagCategories).map(([category, data]) => `
+            <div class="category-group" style="margin-bottom: 12px;">
+                <div class="category-header" style="color: var(--chhj-green); font-weight: 500; margin-bottom: 4px;">
+                    ${category} (${data.total})
+                </div>
+                <div class="tag-list" style="padding-left: 12px;">
+                    ${Object.entries(data.tags).map(([tag, count]) => `
+                        <div class="tag-item" style="margin-bottom: 2px;">
+                            <span style="color: var(--chhj-green); font-weight: 600; font-size: 0.9em;">
+                                ${count}
+                            </span> - ${tag}
                         </div>
-                    `).join('') : '<div style="color: #666;">No tag categories available</div>'}
+                    `).join('')}
                 </div>
             </div>
-        `;
+        `).join('') : '<div style="color: #666;">No tag categories available</div>'}
+    </div>
+</div>
+`;
 
         return html;
     },
@@ -992,18 +1003,6 @@ window.HunkProScheduler = {
         const startDate = viewStart.toISOString().split('T')[0];
         const endDate = viewEnd.toISOString().split('T')[0];
 
-        // Define the mapping between position types and CSS classes
-        const positionClassMap = {
-            'Closer': 'hunkpro-shift-closer',
-            'Morning Dispatch': 'hunkpro-shift-morningdispatch',
-            'Trainer': 'hunkpro-shift-trainer',
-            'Estimator': 'hunkpro-shift-estimator',
-            'Captain - Paperwork Only': 'hunkpro-shift-captainpaperworkonly',
-            'Captain - Driver Only': 'hunkpro-shift-captaindriveronly',
-            'Captain - Full': 'hunkpro-shift-captainfull',
-            'Wingman': 'hunkpro-shift-wingman'
-        };
-
         // Helper function to fetch a single page
         const fetchPage = async (page) => {
             console.log(`Schedules ::: fetchPage ${page}`);
@@ -1065,7 +1064,7 @@ window.HunkProScheduler = {
                         }
 
                         // Get the CSS class based on position name
-                        const cssClass = positionClassMap[positionName] || 'hunkpro-shift-default';
+                        const cssClass = this.positionClassMap[positionName] || 'hunkpro-shift-default';
 
                         // Ensure we have valid resourceId
                         const resourceId = Array.isArray(item.field_58) ? item.field_58[0] : item.field_58;
@@ -1356,7 +1355,11 @@ window.HunkProScheduler = {
                 success: (response) => {
                     console.log('Add Shift Response:', response);
                     this.clearAllOverrides();
-                    this.refreshEvents().then(resolve).catch(reject);
+                    // this.refreshEvents().then(resolve).catch(reject);
+                    resolve({
+                        id: response.recordId, // Use the recordId from the response
+                        ...response
+                    });
                 },
                 error: (error) => {
                     console.error('Error adding shift:', error);
@@ -1407,7 +1410,12 @@ window.HunkProScheduler = {
                 success: function (response) {
                     console.log('Edit Shift Response:', response);
                     // Refresh events after successful addition
-                    self.refreshEvents().then(resolve).catch(reject);
+                    // self.refreshEvents().then(resolve).catch(reject);
+
+                    resolve({
+                        id: shift.id, // Keep the existing ID for updates
+                        ...response
+                    });
                 },
                 error: function (error) {
                     console.error('Error editing shift:', error);
@@ -1417,7 +1425,75 @@ window.HunkProScheduler = {
         });
     },
 
+    // Add this helper method to HunkProScheduler
+    fetchScheduleById: async function (shiftId) {
+        return new Promise((resolve, reject) => {
+            $.ajax({
+                url: `https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records/${shiftId}`,
+                method: "GET",
+                timeout: 0,
+                headers: {
+                    "X-Tadabase-App-id": this.tb_app_id,
+                    "X-Tadabase-App-Key": this.tb_app_key,
+                    "X-Tadabase-App-Secret": this.tb_app_secret
+                },
+                success: (response) => {
+                    try {
+                        if (!response?.item) {
+                            throw new Error('Invalid response format');
+                        }
 
+                        const item = response.item;
+
+                        // Get employee data to find position information
+                        const employeeId = item.field_58[0];
+                        const employee = this.calendar.getResourceById(employeeId);
+
+                        // Find position name from employee's position data
+                        const positionId = item.field_59[0];
+                        const positionData = employee?._resource?.extendedProps?.position?.find(
+                            p => p.id === positionId
+                        );
+
+                        const positionName = positionData?.val || 'Unknown Position';
+                        const cssClass = this.positionClassMap[positionName] || 'hunkpro-shift-default';
+
+                        // Process the shift data
+                        const processedShift = {
+                            id: item.id,
+                            resourceId: employeeId,
+                            title: positionName,
+                            start: item.field_60,
+                            allDay: true,
+                            classNames: [cssClass],
+                            extendedProps: {
+                                publishStatus: item.field_478 || 'Not Published',
+                                hasNotes: item.field_479 ? true : false,
+                                notes: item.field_479 || '',
+                                tags: item.field_477 || [],
+                                tags2: item.field_477?.map(tagId => {
+                                    const tagData = this.tagsTableData.find(t => t.id === tagId);
+                                    return {
+                                        id: tagId,
+                                        val: tagData?.field_43 || 'Unknown Tag'
+                                    };
+                                }) || [],
+                                positionId: item.field_59
+                            }
+                        };
+
+                        resolve(processedShift);
+                    } catch (error) {
+                        console.error('Error processing schedule data:', error);
+                        reject(error);
+                    }
+                },
+                error: function (error) {
+                    reject(error);
+                }
+            });
+        });
+    },
 
     loadData: async function () {
         try {
@@ -1709,10 +1785,10 @@ window.HunkProScheduler = {
 
                         if (!tagDropdown.length) {
                             const dropdown = $(`
-                                <div id="tag-filter-dropdown" class="dropdown-menu p-2" style="min-width: 250px">
-                                    <!-- Tags will be populated here -->
-                                </div>
-                            `).appendTo('body');
+                    <div id="tag-filter-dropdown" class="dropdown-menu p-2" style="min-width: 250px">
+                        <!-- Tags will be populated here -->
+                    </div>
+                `).appendTo('body');
                             this.updateTagFilters(dropdown);
                         }
                         const button$ = $(e.currentTarget);
@@ -1744,10 +1820,10 @@ window.HunkProScheduler = {
 
                         if (!posDropdown.length) {
                             const dropdown = $(`
-                                <div id="position-filter-dropdown" class="dropdown-menu p-2" style="min-width: 250px">
-                                    <!-- Positions will be populated here -->
-                                </div>
-                            `).appendTo('body');
+                    <div id="position-filter-dropdown" class="dropdown-menu p-2" style="min-width: 250px">
+                        <!-- Positions will be populated here -->
+                    </div>
+                `).appendTo('body');
                             this.updatePositionFilters(dropdown);
                         }
                         const button$ = $(e.currentTarget);
@@ -1895,45 +1971,45 @@ window.HunkProScheduler = {
                     }
 
                     const tagsHtml = processedTags.length > 0 ? `
-                        <div class="hunkpro-event-tags">
-                            ${processedTags.map(tag => `
-                                <span class="hunkpro-event-tag ${tag.type === 'tier' ? 'hunkpro-tag-tier' : 'hunkpro-tag-resource'}">
-                                    ${tag.label}
-                                </span>
-                            `).join('')}
-                        </div>
-                    ` : '';
+            <div class="hunkpro-event-tags">
+                ${processedTags.map(tag => `
+                    <span class="hunkpro-event-tag ${tag.type === 'tier' ? 'hunkpro-tag-tier' : 'hunkpro-tag-resource'}">
+                        ${tag.label}
+                    </span>
+                `).join('')}
+            </div>
+        ` : '';
 
                     const syncStatusHtml = syncStatus ? `
-                        <div class="sync-status-indicator">
-                            <div class="sync-${syncStatus}"></div>
-                        </div>
-                    ` : '';
+            <div class="sync-status-indicator">
+                <div class="sync-${syncStatus}"></div>
+            </div>
+        ` : '';
 
                     return {
                         html: `
-                            <div class="hunkpro-event-wrapper">
-                                <div class="hunkpro-event-content">
-                                    <div class="hunkpro-event-title">${arg.event.title}</div>
-                                    <div class="hunkpro-event-icons">
-                                        ${hasNotes ? `
-                                            <div class="hunkpro-event-icon hunkpro-note-icon" title="Has Notes">
-                                                <div class="hunkpro-status-icon">
-                                                    <span class="material-icons">description</span>
-                                                </div>
-                                            </div>
-                                        ` : ''}
-                                        <div class="hunkpro-event-icon ${statusInfo.class}" title="${statusInfo.title}">
-                                            <div class="hunkpro-status-icon">
-                                                <span class="material-icons">${statusInfo.icon}</span>
-                                            </div>
-                                        </div>
+                <div class="hunkpro-event-wrapper">
+                    <div class="hunkpro-event-content">
+                        <div class="hunkpro-event-title">${arg.event.title}</div>
+                        <div class="hunkpro-event-icons">
+                            ${hasNotes ? `
+                                <div class="hunkpro-event-icon hunkpro-note-icon" title="Has Notes">
+                                    <div class="hunkpro-status-icon">
+                                        <span class="material-icons">description</span>
                                     </div>
                                 </div>
-                                ${tagsHtml}
-                                ${syncStatusHtml}
+                            ` : ''}
+                            <div class="hunkpro-event-icon ${statusInfo.class}" title="${statusInfo.title}">
+                                <div class="hunkpro-status-icon">
+                                    <span class="material-icons">${statusInfo.icon}</span>
+                                </div>
                             </div>
-                        `
+                        </div>
+                    </div>
+                    ${tagsHtml}
+                    ${syncStatusHtml}
+                </div>
+            `
                     };
                 }
                 return `${arg.event.title}`;
@@ -1983,21 +2059,21 @@ window.HunkProScheduler = {
         Array.from(tags).forEach(tagStr => {
             const tag = JSON.parse(tagStr);
             dropdown.append(`
-                <div class="form-check  py-2">
-                    <input class="form-check-input filter-tag" type="checkbox" value="${tag.id}" id="tag-${tag.id}">
-                    <label class="form-check-label" for="tag-${tag.id}">
-                        ${tag.label}
-                    </label>
-                </div>
-            `);
+    <div class="form-check  py-2">
+        <input class="form-check-input filter-tag" type="checkbox" value="${tag.id}" id="tag-${tag.id}">
+        <label class="form-check-label" for="tag-${tag.id}">
+            ${tag.label}
+        </label>
+    </div>
+`);
         });
 
         // Add clear button if needed
         if (tags.size > 0) {
             dropdown.append(`
-            <div class="dropdown-divider"></div>
-            <button class="btn btn-link btn-sm clear-tag-filters w-100">Clear Tags</button>
-        `);
+<div class="dropdown-divider"></div>
+<button class="btn btn-link btn-sm clear-tag-filters w-100">Clear Tags</button>
+`);
         }
     },
 
@@ -2016,21 +2092,21 @@ window.HunkProScheduler = {
         dropdown.empty();
         Array.from(positions).sort().forEach(position => {
             dropdown.append(`
-                <div class="form-check py-2">
-                    <input class="form-check-input filter-position" type="checkbox" value="${position}" id="pos-${position.replace(/\s+/g, '-')}">
-                    <label class="form-check-label" for="pos-${position.replace(/\s+/g, '-')}">
-                        ${position}
-                    </label>
-                </div>
-            `);
+    <div class="form-check py-2">
+        <input class="form-check-input filter-position" type="checkbox" value="${position}" id="pos-${position.replace(/\s+/g, '-')}">
+        <label class="form-check-label" for="pos-${position.replace(/\s+/g, '-')}">
+            ${position}
+        </label>
+    </div>
+`);
         });
 
         // Add clear button if needed
         if (positions.size > 0) {
             dropdown.append(`
-                <div class="dropdown-divider"></div>
-                <button class="btn btn-link btn-sm clear-position-filters w-100">Clear Positions</button>
-            `);
+    <div class="dropdown-divider"></div>
+    <button class="btn btn-link btn-sm clear-position-filters w-100">Clear Positions</button>
+`);
         }
     },
 
@@ -2208,9 +2284,9 @@ window.HunkProScheduler = {
         };
 
         dateRange.innerHTML = `
-            <strong>From:</strong> ${formatDate(viewStart)} - ${formatDate(adjustedEndDate)}<br>
-            <strong>To:</strong> ${formatDate(nextWeekStart)} - ${formatDate(nextWeekEnd)}
-        `;
+<strong>From:</strong> ${formatDate(viewStart)} - ${formatDate(adjustedEndDate)}<br>
+<strong>To:</strong> ${formatDate(nextWeekStart)} - ${formatDate(nextWeekEnd)}
+`;
 
         // Show modal
         const bsModal = new bootstrap.Modal(modal);
@@ -2416,10 +2492,10 @@ window.HunkProScheduler = {
                 errorLog.classList.remove('chhj-hide');
                 const errorList = errorLog.querySelector('.error-list');
                 errorList.innerHTML = failedShifts.map(failure => `
-                    <div class="error-item">
-                        Failed to copy shift for ${failure.shift.resourceId}: ${failure.error}
-                    </div>
-                `).join('');
+        <div class="error-item">
+            Failed to copy shift for ${failure.shift.resourceId}: ${failure.error}
+        </div>
+    `).join('');
 
                 const retryBtn = errorLog.querySelector('#retryFailedBtn');
                 retryBtn.onclick = () => this.retryFailedShifts(failedShifts);
@@ -2427,11 +2503,11 @@ window.HunkProScheduler = {
                 await Swal.fire({
                     title: 'Copying Complete with Errors',
                     html: `
-                        <div style="text-align: left;">
-                            <p>Copied ${shiftsToCopy.length - failedShifts.length} of ${shiftsToCopy.length} shifts.</p>
-                            <p>Failed to copy ${failedShifts.length} shifts.</p>
-                        </div>
-                    `,
+            <div style="text-align: left;">
+                <p>Copied ${shiftsToCopy.length - failedShifts.length} of ${shiftsToCopy.length} shifts.</p>
+                <p>Failed to copy ${failedShifts.length} shifts.</p>
+            </div>
+        `,
                     icon: 'warning'
                 });
             } else {
@@ -2505,9 +2581,9 @@ window.HunkProScheduler = {
             isRetrying = true;
 
             retryBtn.innerHTML = `
-                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                Retrying...
-            `;
+    <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+    Retrying...
+`;
 
             // Update progress elements
             const processedCount = modal.querySelector('#processedCount');
@@ -2586,19 +2662,19 @@ window.HunkProScheduler = {
                 errorLog.classList.remove('chhj-hide');
                 const errorList = errorLog.querySelector('.error-list');
                 errorList.innerHTML = newFailures.map(failure => `
-                    <div class="error-item">
-                        Failed to copy shift for ${failure.shift.resourceId}: ${failure.error}
-                    </div>
-                `).join('');
+        <div class="error-item">
+            Failed to copy shift for ${failure.shift.resourceId}: ${failure.error}
+        </div>
+    `).join('');
 
                 await Swal.fire({
                     title: 'Retry Complete with Errors',
                     html: `
-                        <div style="text-align: left;">
-                            <p>Successfully copied ${failedShifts.length - newFailures.length} of ${failedShifts.length} failed shifts.</p>
-                            <p>${newFailures.length} shifts still failed to copy.</p>
-                        </div>
-                    `,
+            <div style="text-align: left;">
+                <p>Successfully copied ${failedShifts.length - newFailures.length} of ${failedShifts.length} failed shifts.</p>
+                <p>${newFailures.length} shifts still failed to copy.</p>
+            </div>
+        `,
                     icon: 'warning'
                 });
 
@@ -2696,11 +2772,11 @@ window.HunkProScheduler = {
             Swal.fire({
                 title: 'Copy Week Schedule',
                 html: `
-                    Do you want to copy schedules from<br>
-                    <b>${currentWeekFormatted}</b><br>
-                    to<br>
-                    <b>${nextWeekFormatted}</b>?
-                `,
+        Do you want to copy schedules from<br>
+        <b>${currentWeekFormatted}</b><br>
+        to<br>
+        <b>${nextWeekFormatted}</b>?
+    `,
                 icon: 'question',
                 showCancelButton: true,
                 confirmButtonColor: '#158E52',
@@ -3102,9 +3178,9 @@ window.HunkProScheduler = {
         }
 
         tagDiv.innerHTML = `
-            ${tag.field_43}
-            <span class="tag-remove material-icons" style="font-size: 18px;">close</span>
-        `;
+${tag.field_43}
+<span class="tag-remove material-icons" style="font-size: 18px;">close</span>
+`;
 
         // Only add click handler to the remove button
         tagDiv.querySelector('.tag-remove').addEventListener('click', (e) => {
@@ -3277,7 +3353,7 @@ window.HunkProScheduler = {
                 "Y-m-d"
             );
 
-            // Get existing event's publish status - inlined from previous helper
+            // Get existing event's publish status
             const getPublishStatus = () => {
                 if (isAddMode) return 'Not Published';
                 const event = this.calendar.getEventById(modal.dataset.eventId);
@@ -3286,7 +3362,7 @@ window.HunkProScheduler = {
 
             // Create event data
             const eventData = {
-                id: operationId, // Use operation ID as temporary event ID
+                id: operationId,
                 resourceId: modal.dataset.resourceId,
                 title: positionDisplayText,
                 start: selectedDate,
@@ -3300,23 +3376,20 @@ window.HunkProScheduler = {
                     tags2: selectedTags,
                     syncStatus: 'syncing',
                     positionId: [position],
-                    operationId // Store operation ID in event props
+                    operationId
                 }
             };
 
             let calendarEvent;
 
+            // Add or update the calendar event first
             if (isAddMode) {
-                // Add temporary event
                 calendarEvent = this.calendar.addEvent(eventData);
                 this.trackOperation(operationId, calendarEvent, 'add');
-                // throw new Error('Forced error for testing');
             } else {
-                // Update existing event - inlined from previous helper
                 const existingEvent = this.calendar.getEventById(modal.dataset.eventId);
                 if (existingEvent) {
                     this.trackOperation(operationId, existingEvent, 'update');
-                    // throw new Error('Forced error for testing');
 
                     // Update event properties
                     existingEvent.setProp('title', eventData.title);
@@ -3335,13 +3408,13 @@ window.HunkProScheduler = {
                 }
             }
 
-            // Close modal early to prevent interference
+            // Close modal before API call
             const bsModal = bootstrap.Modal.getInstance(modal);
             bsModal.hide();
 
-            // Make API call
+            // Make API call based on mode
             if (isAddMode) {
-                await this.addShift({
+                const response = await this.addShift({
                     operationId,
                     user: modal.dataset.resourceId,
                     position: position,
@@ -3349,8 +3422,30 @@ window.HunkProScheduler = {
                     tags: tagIds,
                     notes: notesInput
                 });
+
+                console.log('isAddMode shift response:', response);
+
+                // Fetch fresh shift data and add to calendar
+                const freshShiftData = await this.fetchScheduleById(response.id);
+
+                // Update operation status
+                this.pendingOperations.get(operationId).status = 'success';
+
+                // Add to local shifts array
+                this.shifts.push(freshShiftData);
+
+                // Remove temporary event
+                if (calendarEvent && !calendarEvent.isDeleted) {
+                    calendarEvent.remove();
+                }
+            
+                // Add to calendar with complete data
+                this.calendar.addEvent(freshShiftData);
+
+                
+
             } else {
-                await this.updateShift({
+                const response = await this.updateShift({
                     operationId,
                     id: modal.dataset.eventId,
                     date: selectedDate,
@@ -3359,22 +3454,25 @@ window.HunkProScheduler = {
                     notes: notesInput,
                     publishStatus: eventData.extendedProps.publishStatus
                 });
+
+                console.log('Update shift response:', response);
+
+                // Update operation status
+                this.pendingOperations.get(operationId).status = 'success';
+
+                if (calendarEvent && !calendarEvent.isDeleted) {
+                    // Update existing event with final data
+                    Object.keys(eventData.extendedProps).forEach(key => {
+                        if (key !== 'syncStatus' && key !== 'operationId') {
+                            calendarEvent.setExtendedProp(key, eventData.extendedProps[key]);
+                        }
+                    });
+                    calendarEvent.setExtendedProp('syncStatus', null);
+                }
             }
 
-            // Update operation status
-            this.pendingOperations.get(operationId).status = 'success';
-
-            // Update the event after successful API call
-            if (calendarEvent && !calendarEvent.isDeleted) {
-                calendarEvent.setExtendedProp('syncStatus', 'synced');
-                // Remove temporary operation ID after success
-                setTimeout(() => {
-                    calendarEvent.setExtendedProp('operationId', null);
-                }, 1000);
-            }
-
+            // Update counts after successful operation
             this.updateAllCounts();
-            await this.refreshEvents();
 
         } catch (error) {
             console.error('Error handling form submit:', error);
