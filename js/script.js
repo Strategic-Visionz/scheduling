@@ -1081,6 +1081,7 @@ window.HunkProScheduler = {
                             start: item.field_60,
                             classNames: [cssClass],
                             allDay: true,
+                            resourceEditable: false,
                             extendedProps: {
                                 hasNotes: item.field_479 !== null && item.field_479 !== '',
                                 publishStatus: item.field_478 || 'unknown',
@@ -1466,6 +1467,7 @@ window.HunkProScheduler = {
                             start: item.field_60,
                             allDay: true,
                             classNames: [cssClass],
+                            resourceEditable: false,
                             extendedProps: {
                                 publishStatus: item.field_478 || 'Not Published',
                                 hasNotes: item.field_479 ? true : false,
@@ -2945,6 +2947,22 @@ window.HunkProScheduler = {
 
     // Update handleEventDrop to handle suspensions
     handleEventDrop: async function (info) {
+
+        // Check if the resource (employee) has changed
+        // console.log('info.oldResource',info.oldResource);
+        // console.log('info.newResource',info.newResource);
+        // console.log('info.oldResource.id',info.oldResource.id);
+        // console.log('info.newResource.id',info.newResource.id);
+        if (info.oldResource && info.newResource && info.oldResource._resource.id !== info.newResource._resource.id) {
+            info.revert();
+            await Swal.fire({
+                title: 'Invalid Move',
+                text: 'Shifts cannot be moved between employees.',
+                icon: 'error'
+            });
+            return;
+        }
+
         const conflict = this.checkAvailability(
             info.event.getResources()[0].id,
             info.event.start
@@ -3388,6 +3406,8 @@ ${tag.field_43}
                 this.trackOperation(operationId, calendarEvent, 'add');
             } else {
                 const existingEvent = this.calendar.getEventById(modal.dataset.eventId);
+                console.log('existingEvent', existingEvent);
+                console.log('existingEvent typeof', typeof existingEvent);
                 if (existingEvent) {
                     this.trackOperation(operationId, existingEvent, 'update');
 
@@ -3438,13 +3458,14 @@ ${tag.field_43}
                 if (calendarEvent && !calendarEvent.isDeleted) {
                     calendarEvent.remove();
                 }
-            
+
                 // Add to calendar with complete data
                 this.calendar.addEvent(freshShiftData);
 
-                
+
 
             } else {
+
                 const response = await this.updateShift({
                     operationId,
                     id: modal.dataset.eventId,
@@ -3457,17 +3478,32 @@ ${tag.field_43}
 
                 console.log('Update shift response:', response);
 
+                // Fetch fresh shift data after update
+                const freshShiftData = await this.fetchScheduleById(modal.dataset.eventId);
+
                 // Update operation status
                 this.pendingOperations.get(operationId).status = 'success';
 
+                // Update the shift in the local shifts array
+                const shiftIndex = this.shifts.findIndex(s => s.id === modal.dataset.eventId);
+                if (shiftIndex !== -1) {
+                    this.shifts[shiftIndex] = freshShiftData;
+                }
+
                 if (calendarEvent && !calendarEvent.isDeleted) {
-                    // Update existing event with final data
-                    Object.keys(eventData.extendedProps).forEach(key => {
-                        if (key !== 'syncStatus' && key !== 'operationId') {
-                            calendarEvent.setExtendedProp(key, eventData.extendedProps[key]);
-                        }
-                    });
-                    calendarEvent.setExtendedProp('syncStatus', null);
+                    // Remove the existing event
+                    calendarEvent.remove();
+
+                    // Add the updated event with fresh data
+                    this.calendar.addEvent(freshShiftData);
+
+                    //     // Update existing event with final data
+                    //     Object.keys(eventData.extendedProps).forEach(key => {
+                    //         if (key !== 'syncStatus' && key !== 'operationId') {
+                    //             calendarEvent.setExtendedProp(key, eventData.extendedProps[key]);
+                    //         }
+                    //     });
+                    //     calendarEvent.setExtendedProp('syncStatus', null);
                 }
             }
 
@@ -3536,28 +3572,103 @@ ${tag.field_43}
         errorDiv.style.display = 'none';
     },
 
-    eventDropUpdate: function (event) {
-        const shiftIndex = this.shifts.findIndex(s => s.id === event.id);
-        if (shiftIndex !== -1) {
-            this.shifts[shiftIndex] = {
-                ...this.shifts[shiftIndex],
-                resourceId: event.getResources()[0].id,
-                start: event.startStr
-            };
+    eventDropUpdate: async function (event) {
+        // Generate unique operation ID
+        const operationId = this.generateOperationId();
+        console.log('event', event);
+        console.log('event typeof', typeof event);
 
+        try {
             // Get current publish status from event
             let publishStatus = event.extendedProps.publishStatus || 'Not Published';
             // if currently published, make sure to tag as Re-Publish
-            publishStatus = publishStatus === 'Published' ? 'Re-Publish' : publishStatus
+            publishStatus = publishStatus === 'Published' ? 'Re-Publish' : publishStatus;
 
-            this.updateShift({
-                id: event?.id || '',
-                date: event?.startStr || '',
-                position: event?.extendedProps?.positionId?.[0] || '',
+            // Track the operation
+            this.trackOperation(operationId, event, 'update');
+
+            // Set sync status to 'syncing' and update the event display
+            event.setExtendedProp('syncStatus', 'syncing');
+            event.setExtendedProp('operationId', operationId);
+
+            // Force immediate re-render of the event
+            // event.remove(); // Remove the event
+            // this.calendar.addEvent(event); // Re-add the event to trigger a re-render
+
+            // Update the shift
+            await this.updateShift({
+                operationId,
+                id: event.id,
+                date: event.startStr,
+                position: event.extendedProps?.positionId?.[0] || '',
                 publishStatus
             });
+
+            // Fetch fresh shift data after update
+            const freshShiftData = await this.fetchScheduleById(event.id);
+
+            // Update operation status
+            this.pendingOperations.get(operationId).status = 'success';
+
+            // Update the shift in the local shifts array
+            const shiftIndex = this.shifts.findIndex(s => s.id === event.id);
+            if (shiftIndex !== -1) {
+                this.shifts[shiftIndex] = freshShiftData;
+            } else {
+                // If not found, add it to the array
+                this.shifts.push(freshShiftData);
+            }
+
+            // Remove the existing event from the calendar
+            event.remove();
+
+            // Add the updated event with fresh data to the calendar
+            this.calendar.addEvent(freshShiftData);
+
+            // Update all counts
+            this.updateAllCounts();
+
+        } catch (error) {
+            console.error('Error updating dropped event:', error);
+
+            // Find event by operation ID
+            const operation = this.pendingOperations.get(operationId);
+            if (operation && operation.event && !operation.event.isDeleted) {
+                operation.event.setExtendedProp('syncStatus', 'error');
+                operation.event.setExtendedProp('operationId', null);
+
+                // Force re-render of the event
+                operation.event.remove();
+                this.calendar.addEvent(operation.event);
+
+                // Revert the drop
+                operation.event.revert();
+
+                // Handle cleanup after error display
+                setTimeout(() => {
+                    if (operation.event && !operation.event.isDeleted) {
+                        operation.event.setExtendedProp('syncStatus', null);
+                        operation.event.setExtendedProp('operationId', null);
+
+                        // Force another re-render
+                        operation.event.remove();
+                        this.calendar.addEvent(operation.event);
+                    }
+                }, 3000);
+            }
+
+            await Swal.fire({
+                title: 'Error',
+                text: 'Failed to update shift. The change has been reverted.',
+                icon: 'error'
+            });
+
+        } finally {
+            // Cleanup operation after delay
+            setTimeout(() => {
+                this.pendingOperations.delete(operationId);
+            }, 5000);
         }
-        this.updateAllCounts();
     },
 
     getWeeklyShiftCount: function (resourceId) {
