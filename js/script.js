@@ -166,6 +166,7 @@ window.HunkProScheduler = {
     tagsTableData: [],
     tagStatistics: {},
     pendingOperations: new Map(),
+    modalFormData: new WeakMap(),
 
     countUnpublishedShifts: function () {
         const currentView = this.calendar.view;
@@ -3102,6 +3103,10 @@ window.HunkProScheduler = {
 
         // Handle modal hidden event
         modal.addEventListener('hidden.bs.modal', () => {
+            if (bsModal) {
+                this.modalFormData.delete(bsModal);
+            }
+            
             this.clearError();
             this.toggleLoader(false);
             this.clearAllOverrides();
@@ -3276,19 +3281,40 @@ ${tag.field_43}
         const employeeInput = document.getElementById('hunkpro-shift-employee');
         const positionSelect = document.getElementById('hunkpro-shift-position');
         const notesInput = document.getElementById('hunkpro-shift-notes');
+        const bsModal = bootstrap.Modal.getInstance(modal) || new bootstrap.Modal(modal);
 
         this.toggleLoader(false);
         this.clearError();
 
         modalTitle.textContent = mode === 'add' ? 'Add Shift' : 'Edit Shift';
 
-        // Set modal data attributes
+        // Prepare form data with all necessary information
+        const formData = {
+            operationId: this.generateOperationId(),
+            mode,
+            resourceId: mode === 'add' ? info.resource.id : info.event.getResources()[0].id,
+            eventId: mode === 'edit' ? info.event.id : null,
+            startDate: mode === 'add' ? info.startStr : info.event.startStr,
+            position: mode === 'edit' ? info.event.extendedProps?.positionId?.[0] || '' : '',
+            positionDisplayText: mode === 'edit' ? info.event.title : '',
+            notes: mode === 'edit' ? info.event.extendedProps.notes || '' : '',
+            tags: mode === 'edit' ? info.event.extendedProps.tags || [] : [],
+            tags2: mode === 'edit' ? info.event.extendedProps.tags2 || [] : [],
+            publishStatus: mode === 'edit' ?
+                (info.event.extendedProps.publishStatus === 'Published' ? 'Re-Publish' : 'Not Published') :
+                'Not Published'
+        };
+
+        // Store the form data
+        this.modalFormData.set(bsModal, formData);
+
+        // Set modal data attributes for compatibility
         modal.dataset.mode = mode;
-        modal.dataset.resourceId = mode === 'add' ? info.resource.id : info.event.getResources()[0].id;
-        modal.dataset.start = mode === 'add' ? info.startStr : info.event.startStr;
+        modal.dataset.resourceId = formData.resourceId;
+        modal.dataset.start = formData.startDate;
 
         if (mode === 'edit') {
-            modal.dataset.eventId = info.event.id;
+            modal.dataset.eventId = formData.eventId;
             const eventDate = new Date(info.event.start);
             this.addOverrideDate(info.event.getResources()[0].id, eventDate);
         }
@@ -3302,17 +3328,14 @@ ${tag.field_43}
             employeeInput.value = info.resource.title;
             positionSelect.value = '';
             this.renderPositionOptions(info.resource, mode, null);
-            notesInput.value = ''; // Clear notes for new shifts
+            notesInput.value = '';
         } else {
             this.datePicker.setDate(info.event.start);
             employeeInput.value = info.event.getResources()[0].title;
             positionSelect.value = info.event.title.toLowerCase();
             this.renderPositionOptions(info.event.getResources()[0], mode, info.event);
-            notesInput.value = info.event.extendedProps.notes || '';
+            notesInput.value = formData.notes;
         }
-
-        // Populate tags based on the resource
-        // this.populateTags(mode === 'add' ? info.resource : info.event.getResources()[0]);
 
         // Populate tags based on the mode and available data
         if (mode === 'add') {
@@ -3321,10 +3344,7 @@ ${tag.field_43}
             this.populateTags(info.event.getResources()[0], mode, info.event);
         }
 
-        const bsModal = new bootstrap.Modal(modal);
         bsModal.show();
-
-
     },
 
     // Generate a unique operation ID
@@ -3345,12 +3365,19 @@ ${tag.field_43}
     // Update handleFormSubmit with improved event tracking
     handleFormSubmit: async function () {
         const modal = document.getElementById('hunkpro-shift-modal');
+        const bsModal = bootstrap.Modal.getInstance(modal);
         const position = document.getElementById('hunkpro-shift-position').value;
         const notesInput = document.getElementById('hunkpro-shift-notes').value;
-        const isAddMode = modal.dataset.mode === 'add';
 
-        const selectedTags = this.getSelectedTags();
-        const tagIds = selectedTags.map(tag => tag.id);
+        // Get the stored form data
+        const formData = this.modalFormData.get(bsModal);
+        if (!formData) {
+            console.error('No form data found for modal');
+            this.showError('Error processing form data. Please try again.');
+            return;
+        }
+
+        const isAddMode = formData.mode === 'add';
 
         this.clearError();
 
@@ -3359,8 +3386,9 @@ ${tag.field_43}
             return;
         }
 
-        // Generate unique operation ID
-        const operationId = this.generateOperationId();
+        // Get current selected tags
+        const selectedTags = this.getSelectedTags();
+        const tagIds = selectedTags.map(tag => tag.id);
 
         try {
             this.toggleLoader(true, isAddMode ? 'Adding Shift...' : 'Updating Shift...');
@@ -3371,30 +3399,23 @@ ${tag.field_43}
                 "Y-m-d"
             );
 
-            // Get existing event's publish status
-            const getPublishStatus = () => {
-                if (isAddMode) return 'Not Published';
-                const event = this.calendar.getEventById(modal.dataset.eventId);
-                return event?.extendedProps?.publishStatus === 'Published' ? 'Re-Publish' : 'Not Published';
-            };
-
             // Create event data
             const eventData = {
-                id: operationId,
-                resourceId: modal.dataset.resourceId,
+                id: formData.operationId,
+                resourceId: formData.resourceId,
                 title: positionDisplayText,
                 start: selectedDate,
                 allDay: true,
                 classNames: [`hunkpro-shift-${positionDisplayText.toLowerCase().replace(/\s+/g, '')}`],
                 extendedProps: {
-                    publishStatus: getPublishStatus(),
+                    publishStatus: formData.publishStatus,
                     hasNotes: notesInput.trim().length > 0,
                     notes: notesInput,
                     tags: tagIds,
                     tags2: selectedTags,
                     syncStatus: 'syncing',
                     positionId: [position],
-                    operationId
+                    operationId: formData.operationId
                 }
             };
 
@@ -3403,13 +3424,11 @@ ${tag.field_43}
             // Add or update the calendar event first
             if (isAddMode) {
                 calendarEvent = this.calendar.addEvent(eventData);
-                this.trackOperation(operationId, calendarEvent, 'add');
+                this.trackOperation(formData.operationId, calendarEvent, 'add');
             } else {
-                const existingEvent = this.calendar.getEventById(modal.dataset.eventId);
-                console.log('existingEvent', existingEvent);
-                console.log('existingEvent typeof', typeof existingEvent);
+                const existingEvent = this.calendar.getEventById(formData.eventId);
                 if (existingEvent) {
-                    this.trackOperation(operationId, existingEvent, 'update');
+                    this.trackOperation(formData.operationId, existingEvent, 'update');
 
                     // Update event properties
                     existingEvent.setProp('title', eventData.title);
@@ -3428,47 +3447,35 @@ ${tag.field_43}
                 }
             }
 
-            // Close modal before API call
-            const bsModal = bootstrap.Modal.getInstance(modal);
+            // Close modal and clean up stored data before API call
+            this.modalFormData.delete(bsModal);
             bsModal.hide();
 
             // Make API call based on mode
             if (isAddMode) {
                 const response = await this.addShift({
-                    operationId,
-                    user: modal.dataset.resourceId,
+                    operationId: formData.operationId,
+                    user: formData.resourceId,
                     position: position,
                     date: selectedDate,
                     tags: tagIds,
                     notes: notesInput
                 });
 
-                console.log('isAddMode shift response:', response);
-
-                // Fetch fresh shift data and add to calendar
                 const freshShiftData = await this.fetchScheduleById(response.id);
-
-                // Update operation status
-                this.pendingOperations.get(operationId).status = 'success';
-
-                // Add to local shifts array
+                this.pendingOperations.get(formData.operationId).status = 'success';
                 this.shifts.push(freshShiftData);
 
-                // Remove temporary event
                 if (calendarEvent && !calendarEvent.isDeleted) {
                     calendarEvent.remove();
                 }
 
-                // Add to calendar with complete data
                 this.calendar.addEvent(freshShiftData);
 
-
-
             } else {
-
                 const response = await this.updateShift({
-                    operationId,
-                    id: modal.dataset.eventId,
+                    operationId: formData.operationId,
+                    id: formData.eventId,
                     date: selectedDate,
                     position: position,
                     tags: tagIds,
@@ -3476,49 +3483,29 @@ ${tag.field_43}
                     publishStatus: eventData.extendedProps.publishStatus
                 });
 
-                console.log('Update shift response:', response);
+                const freshShiftData = await this.fetchScheduleById(formData.eventId);
+                this.pendingOperations.get(formData.operationId).status = 'success';
 
-                // Fetch fresh shift data after update
-                const freshShiftData = await this.fetchScheduleById(modal.dataset.eventId);
-
-                // Update operation status
-                this.pendingOperations.get(operationId).status = 'success';
-
-                // Update the shift in the local shifts array
-                const shiftIndex = this.shifts.findIndex(s => s.id === modal.dataset.eventId);
+                const shiftIndex = this.shifts.findIndex(s => s.id === formData.eventId);
                 if (shiftIndex !== -1) {
                     this.shifts[shiftIndex] = freshShiftData;
                 }
 
                 if (calendarEvent && !calendarEvent.isDeleted) {
-                    // Remove the existing event
                     calendarEvent.remove();
-
-                    // Add the updated event with fresh data
                     this.calendar.addEvent(freshShiftData);
-
-                    //     // Update existing event with final data
-                    //     Object.keys(eventData.extendedProps).forEach(key => {
-                    //         if (key !== 'syncStatus' && key !== 'operationId') {
-                    //             calendarEvent.setExtendedProp(key, eventData.extendedProps[key]);
-                    //         }
-                    //     });
-                    //     calendarEvent.setExtendedProp('syncStatus', null);
                 }
             }
 
-            // Update counts after successful operation
             this.updateAllCounts();
 
         } catch (error) {
             console.error('Error handling form submit:', error);
 
-            // Find event by operation ID
-            const operation = this.pendingOperations.get(operationId);
+            const operation = this.pendingOperations.get(formData.operationId);
             if (operation && operation.event && !operation.event.isDeleted) {
                 operation.event.setExtendedProp('syncStatus', 'error');
 
-                // Handle cleanup after error display
                 setTimeout(() => {
                     if (isAddMode) {
                         operation.event.remove();
@@ -3532,9 +3519,8 @@ ${tag.field_43}
             this.showError('Failed to save shift. Please try again.');
 
         } finally {
-            // Cleanup operation after delay
             setTimeout(() => {
-                this.pendingOperations.delete(operationId);
+                this.pendingOperations.delete(formData.operationId);
             }, 5000);
 
             this.clearAllOverrides();
