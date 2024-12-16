@@ -91,7 +91,7 @@ const CacheUtility = {
             // Check for valid cached data first
             const cachedData = this.getValidCache(cacheKey, cacheDuration, validator);
             if (cachedData) {
-                console.log(`Using cached data for ${cacheKey}`);
+                // console.log(`Using cached data for ${cacheKey}`);
                 return processData(cachedData);
             }
 
@@ -99,7 +99,7 @@ const CacheUtility = {
             const data = await this.makeApiCallWithRetry(apiCall);
             const processedData = processData(data);
             this.updateCache(cacheKey, processedData);
-            console.log(`Fetched fresh data for ${cacheKey}`);
+            // console.log(`Fetched fresh data for ${cacheKey}`);
             return processedData;
 
         } catch (error) {
@@ -385,13 +385,6 @@ window.HunkProScheduler = {
 
     countUnpublishedShifts: function () {
         const currentView = this.calendar.view;
-
-        // const viewStart = new Date(`${currentView.activeStart.toISOString().split('T')[0]}T00:00:00Z`);
-        // const viewEnd = new Date(`${currentView.activeEnd.toISOString().split('T')[0]}T23:59:59.999Z`);
-        // const adjustedEndDate = new Date(viewEnd.getTime() - 24 * 60 * 60 * 1000);
-        // const startDateStr = viewStart.toISOString().split('T')[0];
-        // const endDateStr = adjustedEndDate.toISOString().split('T')[0];
-
         const dateInfo = DateUtility.getViewDateInfo(currentView);
         const { start: viewStart, adjustedEnd: adjustedEndDate } = dateInfo;
 
@@ -404,8 +397,6 @@ window.HunkProScheduler = {
 
         // Filter shifts within current view
         this.shifts.forEach(shift => {
-            // const shiftDate = new Date(shift.start);
-            // if (shiftDate >= viewStart && shiftDate < adjustedEndDate) {
             const shiftDate = DateUtility.parseShiftDate(shift.start);
             if (dateInfo.isWithinView(shiftDate)) {
                 switch (shift.extendedProps.publishStatus) {
@@ -1150,7 +1141,7 @@ window.HunkProScheduler = {
             apiCall: async () => {
                 // Helper function to fetch a single page
                 const fetchPage = async (page) => {
-                    console.log(`Employees ::: fetchPage ${page}`);
+                    // console.log(`Employees ::: fetchPage ${page}`);
                     const response = await $.ajax({
                         url: `https://api.tadabase.io/api/v1/data-tables/4MXQJdrZ6v/records`,
                         method: "GET",
@@ -1222,13 +1213,13 @@ window.HunkProScheduler = {
 
     fetchSchedules: function () {
         const dateInfo = DateUtility.getViewDateInfo(this.calendar.view);
-        console.log('fetchSchedules ::: dateInfo', dateInfo);
+        // console.log('fetchSchedules ::: dateInfo', dateInfo);
         const startDate = dateInfo.startStr;
         const endDate = dateInfo.endStr;
 
         // Helper function to fetch a single page
         const fetchPage = async (page) => {
-            console.log(`Schedules ::: fetchPage ${page}`);
+            // console.log(`Schedules ::: fetchPage ${page}`);
             return new Promise((resolve, reject) => {
                 $.ajax({
                     url: `https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records?filters[items][0][field_id]=field_60&filters[items][0][operator]=is%20on%20or%20after&filters[items][0][val]=${startDate}&filters[items][1][field_id]=field_60&filters[items][1][operator]=is%20on%20or%20before&filters[items][1][val]=${endDate}&limit=100&page=${page}`,
@@ -1339,17 +1330,17 @@ window.HunkProScheduler = {
 
         const classMap = this.availabilityClassMap;
 
-        console.group('fetchAvailability');
-        console.log('dateInfo', dateInfo);
-        console.log('bufferStart', bufferStart);
-        console.log('bufferEnd', bufferEnd);
-        console.log('startDate', startDate);
-        console.log('endDate', endDate);
-        console.groupEnd();
+        // console.group('fetchAvailability');
+        // console.log('dateInfo', dateInfo);
+        // console.log('bufferStart', bufferStart);
+        // console.log('bufferEnd', bufferEnd);
+        // console.log('startDate', startDate);
+        // console.log('endDate', endDate);
+        // console.groupEnd();
 
         // Helper function to fetch a single page
         const fetchPage = async (page) => {
-            console.log(`Availability ::: fetchPage ${page}`);
+            // console.log(`Availability ::: fetchPage ${page}`);
             return new Promise((resolve, reject) => {
                 $.ajax({
                     "url": `https://api.tadabase.io/api/v1/data-tables/eykNOvrDY3/records?filters[items][0][field_id]=field_428-start&filters[items][0][operator]=is%20on%20or%20before&filters[items][0][val]=${endDate}&filters[items][1][field_id]=field_428-end&filters[items][1][operator]=is%20on%20or%20after&filters[items][1][val]=${startDate}&filters[items][2][field_id]=field_67&filters[items][2][operator]=is%20not&filters[items][2][val]=Regular%20Day%20Off&limit=100&page=${page}`,
@@ -1767,21 +1758,27 @@ window.HunkProScheduler = {
 
     createAvailabilityEvents: function (id, resourceId, startDate, endDate, title, className) {
         const events = [];
-        const start = new Date(startDate);
-        const end = new Date(endDate);
+        const start = DateUtility.parseShiftDate(startDate);
+        const end = DateUtility.parseShiftDate(endDate);
 
-        // Create an event for each day in the range
-        for (let date = start; date < end; date.setDate(date.getDate() + 1)) {
+        if (!start || !end) {
+            console.error('Invalid date range for availability events');
+            return events;
+        }
+
+        let currentDate = start;
+        while (currentDate <= end) {
+            const dateStr = DateUtility.formatDate(currentDate);
             events.push({
-                id: `${id}-${date.toISOString().split('T')[0]}`,
+                id: `${id}-${dateStr}`,
                 resourceId: resourceId,
-                start: date.toISOString().split('T')[0],
-                end: new Date(date.setDate(date.getDate() + 1)).toISOString().split('T')[0],
+                start: dateStr,
+                end: DateUtility.formatDate(DateUtility.addDays(currentDate, 1)),
                 title: title,
                 display: 'background',
                 classNames: [className],
             });
-            date.setDate(date.getDate() - 1); // Reset the date back since we modified it for end date
+            currentDate = DateUtility.addDays(currentDate, 1);
         }
 
         return events;
@@ -2548,26 +2545,6 @@ window.HunkProScheduler = {
         }).length;
     },
 
-    countExistingShiftsInTargetWeek: function (nextWeekStart, nextWeekEnd) {
-        if (!nextWeekStart || !nextWeekEnd) {
-            console.error('Invalid date parameters for countExistingShiftsInTargetWeek');
-            return 0;
-        }
-
-        const start = DateUtility.parseShiftDate(nextWeekStart);
-        const end = DateUtility.parseShiftDate(nextWeekEnd);
-
-        if (!start || !end) {
-            console.error('Failed to parse dates for counting existing shifts');
-            return 0;
-        }
-
-        return this.shifts.filter(shift => {
-            const shiftDate = DateUtility.parseShiftDate(shift.start);
-            return shiftDate && DateUtility.isDateInRange(shiftDate, start, end);
-        }).length;
-    },
-
     handleCopyConfirm: async function (modalInstance) {
         const modal = document.getElementById('hunkpro-copy-week-modal');
         const progressSection = modal.querySelector('.copy-progress-section');
@@ -2941,153 +2918,6 @@ Retrying...
             retryBtn.disabled = false;
             retryBtn.textContent = 'Retry Failed Shifts';
         }
-    },
-
-    showCopyWeekDialogV1: function () {
-        const currentView = this.calendar.view;
-        if (!currentView) {
-            console.error('Calendar view not initialized');
-            Swal.fire({
-                title: 'Error',
-                text: 'Calendar not properly initialized. Please refresh the page.',
-                icon: 'error'
-            });
-            return;
-        }
-
-        try {
-            // Get the formatted dates directly from the view
-            const formattedStart = currentView.activeStart.toISOString().split('T')[0];
-            const formattedEnd = currentView.activeEnd.toISOString().split('T')[0];
-
-            const weekStart = new Date(
-                currentView.activeStart.getFullYear(),
-                currentView.activeStart.getMonth(),
-                currentView.activeStart.getDate()
-            );
-
-            const weekEnd = new Date(
-                currentView.activeEnd.getFullYear(),
-                currentView.activeEnd.getMonth(),
-                currentView.activeEnd.getDate() - 1  // Subtract 1 from end date only if needed for display
-            );
-
-            // Calculate next week's dates
-            const nextWeekStart = new Date(weekStart);
-            nextWeekStart.setDate(nextWeekStart.getDate() + 7);
-
-            const nextWeekEnd = new Date(weekEnd);
-            nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
-
-            const formatDate = (date) => {
-                return date.toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                });
-            };
-
-            // Format dates for display
-            const currentWeekFormatted = formatDate(weekStart) + ' to ' + formatDate(weekEnd);
-            const nextWeekFormatted = formatDate(nextWeekStart) + ' to ' + formatDate(nextWeekEnd);
-
-            if (currentWeekFormatted.includes('Invalid Date') || nextWeekFormatted.includes('Invalid Date')) {
-                throw new Error('Invalid date formatting');
-            }
-
-            // Show the dialog with correct dates
-            Swal.fire({
-                title: 'Copy Week Schedule',
-                html: `
-        Do you want to copy schedules from<br>
-        <b>${currentWeekFormatted}</b><br>
-        to<br>
-        <b>${nextWeekFormatted}</b>?
-    `,
-                icon: 'question',
-                showCancelButton: true,
-                confirmButtonColor: '#158E52',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'Yes, copy schedules',
-                showLoaderOnConfirm: true,
-                preConfirm: () => {
-                    return this.copyWeekSchedulesV1(weekStart, weekEnd)
-                        .catch(error => {
-                            Swal.showValidationMessage(`Copy failed: ${error.message}`);
-                            return false;
-                        });
-                }
-            });
-
-        } catch (error) {
-            console.error('showCopyWeekDialog error:', error);
-            Swal.fire({
-                title: 'Error',
-                text: 'Failed to prepare date range for copying. Please try again.',
-                icon: 'error'
-            });
-        }
-    },
-
-    copyWeekSchedulesV1: async function (weekStart, weekEnd) {
-        if (!weekStart || !weekEnd) {
-            throw new Error('Invalid date parameters');
-        }
-
-        // Format dates for API call
-        const formattedStart = weekStart.toISOString().split('T')[0];
-        const formattedEnd = weekEnd.toISOString().split('T')[0];
-
-        // Validate date format
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(formattedStart) || !/^\d{4}-\d{2}-\d{2}$/.test(formattedEnd)) {
-            throw new Error('Invalid date format');
-        }
-
-        return new Promise((resolve, reject) => {
-            $.ajax({
-                url: `https://xrmy-stin-hzw8.n7.xano.io/api:t_v_V8iM/copy_schedules_add_days`,
-                method: "GET",
-                timeout: 30000, // 30 second timeout
-                headers: {
-                    "X-Tadabase-App-id": this.tb_app_id,
-                    "X-Tadabase-App-Key": this.tb_app_key,
-                    "X-Tadabase-App-Secret": this.tb_app_secret,
-                    "Authorization": "Bearer h3-6w8xKmnx-WQmh3-8w6xUirs-VUeS"
-                },
-                data: {
-                    start_date: formattedStart,
-                    end_date: formattedEnd
-                },
-                success: (response) => {
-                    try {
-                        if (!response) {
-                            throw new Error('Empty response from server');
-                        }
-
-                        // Handle both string and parsed JSON responses
-                        const parsedData = typeof response === 'string' ? JSON.parse(response) : response;
-
-                        if (!parsedData) {
-                            throw new Error('Failed to parse server response');
-                        }
-
-                        console.log('Copy schedules response:', parsedData);
-                        resolve(true);
-                    } catch (error) {
-                        console.error('Error processing response:', error);
-                        reject(new Error('Failed to process server response'));
-                    }
-                },
-                error: (jqXHR, textStatus, errorThrown) => {
-                    console.error('API Error:', {
-                        status: jqXHR.status,
-                        textStatus: textStatus,
-                        errorThrown: errorThrown
-                    });
-                    reject(new Error(`Server error: ${textStatus || 'Unknown error'}`));
-                }
-            });
-        });
     },
 
     handleSelect: function (info) {
@@ -4058,44 +3888,58 @@ ${tag.field_43}
     },
 
     getWeeklyShiftCount: function (resourceId) {
-        const viewStart = this.calendar.view.activeStart;
-        const viewEnd = this.calendar.view.activeEnd;
-
-        return this.shifts.filter(shift =>
-            shift.resourceId === resourceId &&
-            new Date(shift.start) >= viewStart &&
-            new Date(shift.start) < viewEnd
-        ).length;
-    },
-
-
-    getDailyShiftCount: function (date) {
-        const normalizedTargetDate = new Date(date);
-        // normalizedTargetDate.setHours(0, 0, 0, 0);
+        const dateInfo = DateUtility.getViewDateInfo(this.calendar.view);
+        if (!dateInfo) return 0;
 
         return this.shifts.filter(shift => {
-            const shiftDate = new Date(shift.start);
-            // shiftDate.setHours(0, 0, 0, 0);
-            return shiftDate.getTime() === normalizedTargetDate.getTime();
+            const shiftDate = DateUtility.parseShiftDate(shift.start);
+            return shift.resourceId === resourceId &&
+                shiftDate &&
+                DateUtility.isDateInRange(shiftDate, dateInfo.start, dateInfo.adjustedEnd);
         }).length;
     },
 
-    updateAllCounts: function () {
-        // Ensure calendar is rendered before updating counts
-        if (!this.calendar.isRendered) {
-            return;
+
+    getDailyShiftCounts: function () {
+        const dateInfo = DateUtility.getViewDateInfo(this.calendar.view);
+        if (!dateInfo) return {};
+
+        const dailyCounts = {};
+
+        // Initialize counts for each day in view
+        let currentDate = dateInfo.start;
+        while (currentDate <= dateInfo.adjustedEnd) {
+            dailyCounts[DateUtility.formatDate(currentDate)] = 0;
+            currentDate = DateUtility.addDays(currentDate, 1);
         }
 
-        // Get current view dates
-        const viewStart = this.calendar.view.activeStart;
-        const viewEnd = this.calendar.view.activeEnd;
+        // Count shifts for each day
+        this.shifts.forEach(shift => {
+            const shiftDate = DateUtility.parseShiftDate(shift.start);
+            if (shiftDate && DateUtility.isDateInRange(shiftDate, dateInfo.start, dateInfo.adjustedEnd)) {
+                const dateStr = DateUtility.formatDate(shiftDate);
+                dailyCounts[dateStr] = (dailyCounts[dateStr] || 0) + 1;
+            }
+        });
 
-        // Process tag statistics for each day in the view
-        for (let date = new Date(viewStart); date < viewEnd; date.setDate(date.getDate() + 1)) {
-            this.processTagStatistics(date);
-            // console.log(`Tag Statistics ${date} ::: `, this.tagStatistics);
+        return dailyCounts;
+    },
+
+    updateAllCounts: async function () {
+        // Ensure calendar is rendered
+        if (!this.calendar.isRendered) return;
+
+        const dateInfo = DateUtility.getViewDateInfo(this.calendar.view);
+        if (!dateInfo) return;
+
+        // Process tag statistics for each day
+        let currentDate = dateInfo.start;
+        while (currentDate <= dateInfo.adjustedEnd) {
+            this.processTagStatistics(currentDate);
+            currentDate = DateUtility.addDays(currentDate, 1);
         }
 
+        // Update unpublished counts
         const unpublishedCount = this.countUnpublishedShifts();
         this.updatePublishButton(unpublishedCount);
 
@@ -4113,10 +3957,9 @@ ${tag.field_43}
             }
         });
 
-        // Update day header counts with improved date handling
-        const counts = this.getDailyShiftCounts();
-        Object.entries(counts).forEach(([dateStr, count]) => {
-            // Find header element for this date
+        // Update day header counts
+        const dailyCounts = this.getDailyShiftCounts();
+        Object.entries(dailyCounts).forEach(([dateStr, count]) => {
             const headerEl = this.calendar.el.querySelector(`[data-date="${dateStr}"]`);
             if (headerEl) {
                 let countEl = headerEl.querySelector('.hunkpro-header-count');
@@ -4125,14 +3968,14 @@ ${tag.field_43}
                     countEl.className = 'hunkpro-header-count';
                     headerEl.appendChild(countEl);
                 }
-                // Always update the count display
                 countEl.textContent = `(${count})`;
             }
         });
 
-        // Force a rerender of the calendar to ensure all counts are displayed
+        // Force calendar rerender
         this.calendar.render();
     },
+
     initializeDatePicker: function () {
         const dateInput = document.getElementById('hunkpro-shift-date');
         const modal = document.getElementById('hunkpro-shift-modal');
@@ -4146,13 +3989,13 @@ ${tag.field_43}
         if (this.datePicker) {
             this.datePicker.destroy();
         }
-        console.group('initializeDatePicker');
-        console.log('dateInfo.today', dateInfo.today);
-        console.log('dateInfo', dateInfo);
-        // console.log();
-        // console.log();
-        // console.log();
-        console.groupEnd();
+        // console.group('initializeDatePicker');
+        // console.log('dateInfo.today', dateInfo.today);
+        // console.log('dateInfo', dateInfo);
+        // // console.log();
+        // // console.log();
+        // // console.log();
+        // console.groupEnd();
 
         this.datePicker = flatpickr(dateInput, {
             dateFormat: "Y-m-d",
@@ -4248,7 +4091,7 @@ ${tag.field_43}
             // Update the calendar when it opens to ensure correct date range
             onOpen: function (selectedDates, dateStr, instance) {
                 console.group('DatePicker Opened');
-                DateUtility.debugDate('Current Selection', selectedDates[0] || dateInfo.start);
+                // DateUtility.debugDate('Current Selection', selectedDates[0] || dateInfo.start);
                 console.log('Date String:', dateStr);
                 console.groupEnd();
                 // Force update of the calendar to ensure correct date range
@@ -4257,7 +4100,7 @@ ${tag.field_43}
 
             onChange: (selectedDates, dateStr) => {
                 console.group('DatePicker Change');
-                DateUtility.debugDate('Selected Date', selectedDates[0]);
+                // DateUtility.debugDate('Selected Date', selectedDates[0]);
                 console.log('Date String:', dateStr);
                 console.groupEnd();
             },
@@ -4274,7 +4117,13 @@ ${tag.field_43}
     },
     // Add override for specific employee and date
     addOverrideDate: function (employeeId, date) {
-        const dateStr = new Date(date).toISOString().split('T')[0];
+        const parsedDate = DateUtility.parseShiftDate(date);
+        if (!parsedDate) {
+            console.error('Invalid date for override:', date);
+            return;
+        }
+
+        const dateStr = DateUtility.formatDate(parsedDate);
         if (!this.overrideDates.has(employeeId)) {
             this.overrideDates.set(employeeId, new Set());
         }
@@ -4283,7 +4132,13 @@ ${tag.field_43}
 
     // Remove override for specific employee and date
     removeOverrideDate: function (employeeId, date) {
-        const dateStr = new Date(date).toISOString().split('T')[0];
+        const parsedDate = DateUtility.parseShiftDate(date);
+        if (!parsedDate) {
+            console.error('Invalid date for override removal:', date);
+            return;
+        }
+
+        const dateStr = DateUtility.formatDate(parsedDate);
         if (this.overrideDates.has(employeeId)) {
             this.overrideDates.get(employeeId).delete(dateStr);
             // Clean up empty sets
@@ -4294,15 +4149,15 @@ ${tag.field_43}
     },
     // Check if date is overridden for employee
     isDateOverridden: function (employeeId, date) {
-        // console.log('overrideDates',this.overrideDates);
-        const dateStr = new Date(date).toISOString().split('T')[0];
+        const parsedDate = DateUtility.parseShiftDate(date);
+        if (!parsedDate) {
+            console.error('Invalid date for override check:', date);
+            return false;
+        }
+
+        const dateStr = DateUtility.formatDate(parsedDate);
         return this.overrideDates.has(employeeId) &&
             this.overrideDates.get(employeeId).has(dateStr);
-    },
-
-    // Clear all overrides for an employee
-    clearEmployeeOverrides: function (employeeId) {
-        this.overrideDates.delete(employeeId);
     },
 
     // Clear all overrides
