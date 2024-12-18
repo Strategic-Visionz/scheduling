@@ -2932,11 +2932,11 @@ Retrying...
             return;
         }
 
-        console.group('handleSelect');
-        console.log('info.start', info.startStr);
-        console.log('DateUtility.parseShiftDate(info.start)', DateUtility.parseShiftDate(info.startStr));
-        console.log('info', info);
-        console.groupEnd();
+        // console.group('handleSelect');
+        // console.log('info.start', info.startStr);
+        // console.log('DateUtility.parseShiftDate(info.start)', DateUtility.parseShiftDate(info.startStr));
+        // console.log('info', info);
+        // console.groupEnd();
         // Parse and validate the selected date using DateUtility
         const selectedDate = DateUtility.parseShiftDate(info.startStr);
         if (!selectedDate) {
@@ -3215,8 +3215,8 @@ Retrying...
                 return shift.resourceId === resourceId && shiftDateStr === checkDateStr;
             });
 
-            console.log('checkDate', checkDate);
-            console.log('existingShift', existingShift);
+            // console.log('checkDate', checkDate);
+            // console.log('existingShift', existingShift);
 
             // If there's already a shift, return a special conflict message
             if (existingShift) {
@@ -3241,9 +3241,9 @@ Retrying...
                     // Subtract one day from end date to account for the inclusive range
                     const adjustedEndDate = DateUtility.subtractDays(availEndDate, 1);
 
-                    console.log('availStartDate', availStartDate);
-                    console.log('availEndDate', availEndDate);
-                    console.log('isDateInRange', DateUtility.isDateInRange(checkDate, availStartDate, adjustedEndDate));
+                    // console.log('availStartDate', availStartDate);
+                    // console.log('availEndDate', availEndDate);
+                    // console.log('isDateInRange', DateUtility.isDateInRange(checkDate, availStartDate, adjustedEndDate));
 
                     return DateUtility.isDateInRange(checkDate, availStartDate, adjustedEndDate);
                 } catch (error) {
@@ -3439,7 +3439,7 @@ ${tag.field_43}
             console.log('renderPositionOptions Event position :', event?.extendedProps?.positionId?.[0]);
         }
         let positions = resource?._resource?.extendedProps?.position || [];
-        console.log('positions', positions);
+        // console.log('positions', positions);
 
         var select = $('#hunkpro-shift-position');
         select.empty();
@@ -3512,12 +3512,12 @@ ${tag.field_43}
 
         // Format date consistently using DateUtility
         const formattedDate = DateUtility.formatDate(startDate);
-        console.group('openModal');
-        console.log('info.event', info.event);
-        console.log('info', info);
-        console.log('formattedDate', formattedDate);
-        console.log('startDate', startDate);
-        console.groupEnd()
+        // console.group('openModal');
+        // console.log('info.event', info.event);
+        // console.log('info', info);
+        // console.log('formattedDate', formattedDate);
+        // console.log('startDate', startDate);
+        // console.groupEnd()
         // Prepare form data with validated information
         const formData = {
             operationId: this.generateOperationId(),
@@ -3976,69 +3976,61 @@ ${tag.field_43}
         this.calendar.render();
     },
 
+    TimeZoneHelper: {
+        toLocalMidnight: function (date) {
+            if (!date) return null;
+            const d = new Date(date);
+            return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+        },
+
+        fromLocalToUTC: function (date) {
+            if (!date) return null;
+            const d = this.toLocalMidnight(date);
+            return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        }
+    },
+
     initializeDatePicker: function () {
         const dateInput = document.getElementById('hunkpro-shift-date');
         const modal = document.getElementById('hunkpro-shift-modal');
         const isEditMode = modal.dataset.mode === 'edit';
         const currentEventId = isEditMode ? modal.dataset.eventId : null;
-
-        // Get current view dates using DateUtility
         const dateInfo = DateUtility.getViewDateInfo(this.calendar.view);
 
-        // Ensure clean slate
         if (this.datePicker) {
             this.datePicker.destroy();
         }
-        // console.group('initializeDatePicker');
-        // console.log('dateInfo.today', dateInfo.today);
-        // console.log('dateInfo', dateInfo);
-        // // console.log();
-        // // console.log();
-        // // console.log();
-        // console.groupEnd();
 
         this.datePicker = flatpickr(dateInput, {
             dateFormat: "Y-m-d",
             defaultDate: dateInfo.today,
             enableTime: false,
-            utc: true, // Optional: use UTC consistently
+            utc: true,
             locale: {
                 firstDayOfWeek: 1
             },
-            // Enable date selection only within the current view's date range
-            // minDate: dateInfo.start,
-            // maxDate: dateInfo.adjustedEnd, // Using adjustedEnd from DateUtility
             minDate: dateInfo.startStr,
             maxDate: dateInfo.endStr,
 
-            // Disable dates outside the current week and handle availability conflicts
+            // Wrap the disable function with timezone handling
             disable: [
                 (date) => {
                     const resourceId = modal.dataset.resourceId;
+                    if (!resourceId) return false;
 
-                    if (!resourceId) {
-                        console.log('No resource ID available');
-                        return false;
-                    }
+                    // Convert picked date to UTC midnight for consistent comparison
+                    const utcDate = this.TimeZoneHelper.fromLocalToUTC(date);
+                    const checkDate = DateUtility.parseShiftDate(utcDate);
 
-                    // Use DateUtility for date parsing and formatting
-                    const checkDate = DateUtility.parseShiftDate(date);
-                    if (!checkDate) {
-                        console.error('Invalid date to check:', date);
-                        return true;
-                    }
+                    if (!checkDate) return true;
 
                     const checkDateStr = DateUtility.formatDate(checkDate);
-                    DateUtility.debugDate('Flatpickr Date', date);
-                    DateUtility.debugDate('Parsed Check Date', checkDate);
 
-
+                    // Check if date is within view
                     const isInView = dateInfo.isWithinView(checkDate);
-                    if (!isInView) {
-                        return true;
-                    }
+                    if (!isInView) return true;
 
-                    // Check for shifts on this date using normalized date comparison
+                    // Check for existing shifts
                     const existingShift = this.shifts.find(shift => {
                         const shiftDate = DateUtility.parseShiftDate(shift.start);
                         if (!shiftDate) return false;
@@ -4049,67 +4041,34 @@ ${tag.field_43}
                             shift.id !== currentEventId;
                     });
 
-                    // If there's a shift and we're not editing that specific shift, disable the date
-                    if (existingShift) {
-                        return true;
-                    }
+                    if (existingShift) return true;
 
-                    // Check if date is overridden (from previous availability override)
-                    if (this.isDateOverridden(resourceId, checkDate)) {
-                        return false;
-                    }
+                    // Check overrides
+                    if (this.isDateOverridden(resourceId, checkDate)) return false;
 
-                    // Check for availability conflicts using DateUtility
-                    const availabilityConflict = this.availability.some(avail => {
+                    // Check availability conflicts
+                    return this.availability.some(avail => {
                         if (avail.resourceId !== resourceId) return false;
 
-                        try {
-                            const startDate = DateUtility.parseShiftDate(avail.start);
-                            const endDate = DateUtility.parseShiftDate(avail.end);
+                        const startDate = DateUtility.parseShiftDate(avail.start);
+                        const endDate = DateUtility.parseShiftDate(avail.end);
 
-                            if (!startDate || !endDate) return false;
+                        if (!startDate || !endDate) return false;
 
-                            // Subtract one day from end date for inclusive range
-                            const adjustedEndDate = DateUtility.subtractDays(endDate, 1);
-
-                            // Use DateUtility's range check
-                            return DateUtility.isDateInRange(checkDate, startDate, adjustedEndDate);
-                        } catch (error) {
-                            console.error('Error checking availability in date picker:', error, avail);
-                            return false;
-                        }
+                        const adjustedEndDate = DateUtility.subtractDays(endDate, 1);
+                        return DateUtility.isDateInRange(checkDate, startDate, adjustedEndDate);
                     });
-
-                    return availabilityConflict;
                 }
             ],
 
-            // Show the calendar immediately when the input is focused
-            allowInput: false,
-            clickOpens: true,
-
-            // Update the calendar when it opens to ensure correct date range
             onOpen: function (selectedDates, dateStr, instance) {
-                console.group('DatePicker Opened');
-                // DateUtility.debugDate('Current Selection', selectedDates[0] || dateInfo.start);
-                console.log('Date String:', dateStr);
-                console.groupEnd();
-                // Force update of the calendar to ensure correct date range
                 instance.jumpToDate(instance.selectedDates[0] || dateInfo.start);
             },
 
             onChange: (selectedDates, dateStr) => {
-                console.group('DatePicker Change');
-                // DateUtility.debugDate('Selected Date', selectedDates[0]);
-                console.log('Date String:', dateStr);
-                console.groupEnd();
-            },
-
-            onClose: () => {
-                const resourceId = modal.dataset.resourceId;
-                if (resourceId) {
-                    // Additional cleanup logic if needed
-                }
+                // Use timezone helper for any onChange handling if needed
+                const localDate = this.TimeZoneHelper.toLocalMidnight(selectedDates[0]);
+                console.log('Selected local date:', localDate);
             }
         });
 
