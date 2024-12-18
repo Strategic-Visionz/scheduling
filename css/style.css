@@ -498,7 +498,8 @@
 }
 
 .hunkpro-unavailable-regular {
-    background-color: #E8E8E8 !important;
+    /* background-color: #E8E8E8 !important; */
+    background-color: #B0BEC5 !important;
     border-color: #D3D3D3 !important;
     color: #666 !important;
     opacity: 0.85 !important;

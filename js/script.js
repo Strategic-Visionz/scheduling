@@ -1164,7 +1164,9 @@ window.HunkProScheduler = {
                                 }]
                             },
                             limit: 100,
-                            page: page
+                            page: page,
+                            order: "name",
+                            order_by: "desc"
                         }
                     });
                     return typeof response === 'string' ? JSON.parse(response) : response;
@@ -1189,22 +1191,23 @@ window.HunkProScheduler = {
                 return allItems;
             },
             processData: (items) => {
-                return items.map(item => {
-                    let employee = {
-                        id: item.id,
-                        title: item.cached ? item.title : item.name,
-                        extendedProps: item.cached ? item.extendedProps : {
-                            department: item.field_427 || [],
-                            status: item.status,
-                            weeklyShifts: 0,
-                            position: item.field_395_val,
-                            tags: item.field_62_val || []
-                        },
-                        cached: true
-                    };
-                    // console.log('processData: employee', employee);
-                    return employee;
-                });
+                return items
+                    .map(item => {
+                        let employee = {
+                            id: item.id,
+                            title: item.cached ? item.title : item.name,
+                            extendedProps: item.cached ? item.extendedProps : {
+                                department: item.field_427 || [],
+                                status: item.status,
+                                weeklyShifts: 0,
+                                position: item.field_395_val,
+                                tags: item.field_62_val || []
+                            },
+                            cached: true
+                        };
+                        // console.log('processData: employee', employee);
+                        return employee;
+                    });
             },
             useExpiredCache: true // Allow using expired cache as fallback
         });
@@ -1219,10 +1222,9 @@ window.HunkProScheduler = {
 
         // Helper function to fetch a single page
         const fetchPage = async (page) => {
-            // console.log(`Schedules ::: fetchPage ${page}`);
             return new Promise((resolve, reject) => {
                 $.ajax({
-                    url: `https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records?filters[items][0][field_id]=field_60&filters[items][0][operator]=is%20on%20or%20after&filters[items][0][val]=${startDate}&filters[items][1][field_id]=field_60&filters[items][1][operator]=is%20on%20or%20before&filters[items][1][val]=${endDate}&limit=100&page=${page}`,
+                    url: "https://api.tadabase.io/api/v1/data-tables/lGArg7rmR6/records",
                     method: "GET",
                     timeout: 0,
                     headers: {
@@ -1230,11 +1232,26 @@ window.HunkProScheduler = {
                         "X-Tadabase-App-Key": this.tb_app_key,
                         "X-Tadabase-App-Secret": this.tb_app_secret
                     },
-                    "processData": false,
-                    "mimeType": "multipart/form-data",
-                    "contentType": false,
+                    data: {
+                        filters: {
+                            items: [
+                                {
+                                    field_id: 'field_60',
+                                    operator: 'is on or after',
+                                    val: startDate
+                                },
+                                {
+                                    field_id: 'field_60',
+                                    operator: 'is on or before',
+                                    val: endDate
+                                }
+                            ]
+                        },
+                        limit: 100,
+                        page: page
+                    },
                     success: function (data) {
-                        resolve(JSON.parse(data));
+                        resolve(typeof data === 'string' ? JSON.parse(data) : data);
                     },
                     error: function (error) {
                         reject(error);
@@ -1340,22 +1357,41 @@ window.HunkProScheduler = {
 
         // Helper function to fetch a single page
         const fetchPage = async (page) => {
-            // console.log(`Availability ::: fetchPage ${page}`);
             return new Promise((resolve, reject) => {
                 $.ajax({
-                    "url": `https://api.tadabase.io/api/v1/data-tables/eykNOvrDY3/records?filters[items][0][field_id]=field_428-start&filters[items][0][operator]=is%20on%20or%20before&filters[items][0][val]=${endDate}&filters[items][1][field_id]=field_428-end&filters[items][1][operator]=is%20on%20or%20after&filters[items][1][val]=${startDate}&filters[items][2][field_id]=field_67&filters[items][2][operator]=is%20not&filters[items][2][val]=Regular%20Day%20Off&limit=100&page=${page}`,
-                    "method": "GET",
-                    "timeout": 0,
-                    "headers": {
+                    url: "https://api.tadabase.io/api/v1/data-tables/eykNOvrDY3/records",
+                    method: "GET",
+                    timeout: 0,
+                    headers: {
                         "X-Tadabase-App-id": this.tb_app_id,
                         "X-Tadabase-App-Key": this.tb_app_key,
                         "X-Tadabase-App-Secret": this.tb_app_secret
                     },
-                    "processData": false,
-                    "mimeType": "multipart/form-data",
-                    "contentType": false,
+                    data: {
+                        filters: {
+                            items: [
+                                {
+                                    field_id: 'field_428-start',
+                                    operator: 'is on or before',
+                                    val: endDate
+                                },
+                                {
+                                    field_id: 'field_428-end',
+                                    operator: 'is on or after',
+                                    val: startDate
+                                },
+                                {
+                                    field_id: 'field_67',
+                                    operator: 'is not',
+                                    val: 'Regular Day Off'
+                                }
+                            ]
+                        },
+                        limit: 100,
+                        page: page
+                    },
                     success: function (data) {
-                        resolve(JSON.parse(data));
+                        resolve(typeof data === 'string' ? JSON.parse(data) : data);
                     },
                     error: function (error) {
                         reject(error);
@@ -1439,10 +1475,11 @@ window.HunkProScheduler = {
             'Saturday': 6
         };
 
-        const makeApiCall = async () => {
+        // Helper function to fetch a single page
+        const fetchPage = async (page) => {
             return new Promise((resolve, reject) => {
                 $.ajax({
-                    url: `https://api.tadabase.io/api/v1/data-tables/eykNOvrDY3/records?filters[items][0][field_id]=field_67&filters[items][0][operator]=is&filters[items][0][val]=Regular%20Day%20Off&filters[items][1][field_id]=field_428-start&filters[items][1][operator]=is%20on%20or%20before&filters[items][1][val]=${endDate}&filters[items][2][field_id]=field_428-end&filters[items][2][operator]=is%20on%20or%20after&filters[items][2][val]=${startDate}`,
+                    url: "https://api.tadabase.io/api/v1/data-tables/eykNOvrDY3/records",
                     method: "GET",
                     timeout: 0,
                     headers: {
@@ -1450,11 +1487,31 @@ window.HunkProScheduler = {
                         "X-Tadabase-App-Key": this.tb_app_key,
                         "X-Tadabase-App-Secret": this.tb_app_secret
                     },
-                    processData: false,
-                    mimeType: "multipart/form-data",
-                    contentType: false,
+                    data: {
+                        filters: {
+                            items: [
+                                {
+                                    field_id: 'field_67',
+                                    operator: 'is',
+                                    val: 'Regular Day Off'
+                                },
+                                {
+                                    field_id: 'field_428-start',
+                                    operator: 'is on or before',
+                                    val: endDate
+                                },
+                                {
+                                    field_id: 'field_428-end',
+                                    operator: 'is on or after',
+                                    val: startDate
+                                }
+                            ]
+                        },
+                        limit: 100,
+                        page: page
+                    },
                     success: function (data) {
-                        resolve(JSON.parse(data));
+                        resolve(typeof data === 'string' ? JSON.parse(data) : data);
                     },
                     error: function (error) {
                         reject(error);
@@ -1463,53 +1520,70 @@ window.HunkProScheduler = {
             });
         };
 
-        return new Promise((resolve, reject) => {
-            makeApiCall()
-                .then((data) => {
-                    let availability = [];
+        // Main function to handle pagination and combine results
+        return new Promise(async (resolve, reject) => {
+            try {
+                let allItems = [];
+                let currentPage = 1;
+                let totalPages = 1;
 
-                    data.items.forEach(item => {
-                        if (item.field_67 === 'Regular Day Off' && Array.isArray(item.field_475) && item.field_475.length > 0) {
-                            const selectedDays = item.field_475
-                                .filter(day => day !== "")
-                                .map(day => dayMapping[day]);
+                // First request to get initial data and total pages
+                const firstPageData = await fetchPage(currentPage);
+                totalPages = firstPageData.total_pages;
+                allItems = [...firstPageData.items];
 
-                            let currentDate = dateInfo.start;
-                            while (currentDate < dateInfo.end) {
-                                if (selectedDays.includes(currentDate.getUTCDay())) {
-                                    const hasExistingAvailability = this.availability.some(avail => {
-                                        return avail.resourceId === item.field_64[0] &&
-                                            DateUtility.isDateInRange(
-                                                currentDate,
-                                                DateUtility.parseShiftDate(avail.start),
-                                                DateUtility.subtractDays(DateUtility.parseShiftDate(avail.end), 1)
-                                            );
+                // Fetch remaining pages if any
+                while (currentPage < totalPages) {
+                    currentPage++;
+                    const nextPageData = await fetchPage(currentPage);
+                    allItems = [...allItems, ...nextPageData.items];
+                }
+
+                let availability = [];
+
+                // Process all items to generate availability events
+                allItems.forEach(item => {
+                    if (item.field_67 === 'Regular Day Off' && Array.isArray(item.field_475) && item.field_475.length > 0) {
+                        const selectedDays = item.field_475
+                            .filter(day => day !== "")
+                            .map(day => dayMapping[day]);
+
+                        let currentDate = dateInfo.start;
+                        while (currentDate < dateInfo.end) {
+                            if (selectedDays.includes(currentDate.getUTCDay())) {
+                                const hasExistingAvailability = this.availability.some(avail => {
+                                    return avail.resourceId === item.field_64[0] &&
+                                        DateUtility.isDateInRange(
+                                            currentDate,
+                                            DateUtility.parseShiftDate(avail.start),
+                                            DateUtility.subtractDays(DateUtility.parseShiftDate(avail.end), 1)
+                                        );
+                                });
+
+                                if (!hasExistingAvailability) {
+                                    availability.push({
+                                        id: `${item.id}-${DateUtility.formatDate(currentDate)}`,
+                                        resourceId: item.field_64[0],
+                                        start: `${DateUtility.formatDate(currentDate)}T00:00:00`,
+                                        end: `${DateUtility.formatDate(DateUtility.addDays(currentDate, 1))}T00:00:00`,
+                                        title: 'Regular Day Off',
+                                        display: 'background',
+                                        textColor: 'black',
+                                        classNames: ['hunkpro-unavailable-regular', 'hunkpro-unavailable-text']
                                     });
-
-                                    if (!hasExistingAvailability) {
-                                        availability.push({
-                                            id: `${item.id}-${DateUtility.formatDate(currentDate)}`,
-                                            resourceId: item.field_64[0],
-                                            start: `${DateUtility.formatDate(currentDate)}T00:00:00`,
-                                            end: `${DateUtility.formatDate(DateUtility.addDays(currentDate, 1))}T00:00:00`,
-                                            title: 'Regular Day Off',
-                                            display: 'background',
-                                            textColor: 'black',
-                                            classNames: ['hunkpro-unavailable-regular', 'hunkpro-unavailable-text']
-                                        });
-                                    }
                                 }
-                                currentDate = DateUtility.addDays(currentDate, 1);
                             }
+                            currentDate = DateUtility.addDays(currentDate, 1);
                         }
-                    });
-
-                    resolve(availability);
-                })
-                .catch(error => {
-                    console.error('Error fetching regular day offs:', error);
-                    reject(error);
+                    }
                 });
+
+                resolve(availability);
+
+            } catch (error) {
+                console.error('Error fetching regular day offs:', error);
+                reject(error);
+            }
         });
     },
 
@@ -2106,7 +2180,30 @@ window.HunkProScheduler = {
                 if (arg.event.display === 'background') {
                     const eventEl = arg.el;
                     eventEl.style.opacity = '0.3';
-                    eventEl.title = `${arg.event.title}: ${new Date(arg.event.start).toLocaleDateString()} to ${new Date(arg.event.end).toLocaleDateString()}`;
+
+                    // Parse start and end dates using DateUtility
+                    const startDate = DateUtility.parseShiftDate(arg.event.start);
+                    const endDate = DateUtility.parseShiftDate(arg.event.end);
+
+                    if (!startDate || !endDate) {
+                        console.error('Invalid dates in eventDidMount:', arg.event);
+                        return;
+                    }
+
+                    // Format title based on event type
+                    if (arg.event.title === 'Regular Day Off') {
+                        eventEl.title = `${arg.event.title}: ${DateUtility.formatDate(startDate)}`;
+                    } else {
+                        // For other availability events, show date range
+                        // Subtract one day from end date to show actual last day
+                        const adjustedEndDate = DateUtility.subtractDays(endDate, 1);
+                        if (!adjustedEndDate) {
+                            console.error('Error calculating adjusted end date:', endDate);
+                            return;
+                        }
+
+                        eventEl.title = `${arg.event.title}: ${DateUtility.formatDate(startDate)} to ${DateUtility.formatDate(adjustedEndDate)}`;
+                    }
                 }
             },
 
@@ -2974,19 +3071,28 @@ Retrying...
                     return;
 
                 case 'availability_conflict':
+
+                    const messageHtml = conflict.start === conflict.end
+                        ? `
+                        <p>The employee is unavailable on this date:</p>
+                        <p><strong>${conflict.title}</strong></p>
+                        <p>${conflict.start}</p>
+                        <p>Do you want to schedule anyway?</p>
+                    `
+                                    : `
+                        <p>The employee is unavailable during this period:</p>
+                        <p><strong>${conflict.title}</strong></p>
+                        <p>${conflict.start} to ${conflict.end}</p>
+                        <p>Do you want to schedule anyway?</p>
+                    `;
                     Swal.fire({
                         icon: "warning",
                         title: "Employee Unavailability",
-                        html: `
-                            <p>The employee is unavailable during this period:</p>
-                            <p><strong>${conflict.title}</strong></p>
-                            <p>${conflict.start} to ${conflict.end}</p>
-                            <p>Do you want to schedule anyway?</p>
-                        `,
+                        html: messageHtml,
                         showDenyButton: true,
                         showCancelButton: true,
                         confirmButtonText: "Yes, Schedule",
-                        denyButtonText: "No, Cancel",
+                        denyButtonText: "No",
                         confirmButtonColor: '#158E52',
                         denyButtonColor: '#dc3545'
                     }).then((result) => {
