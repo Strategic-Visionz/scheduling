@@ -83,8 +83,16 @@
                         <div class="modal-footer">
                             <div id="form-error"></div>
                             <div id="form-options">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                <button type="submit" class="btn btn-primary">Save Shift</button>
+                                <div class="d-flex justify-content-between w-100">
+                                    <button type="button" id="delete-shift-btn" class="btn btn-danger me-2 chhj-hide">
+                                        <span class="material-icons" style="font-size: 18px;">delete</span>
+                                    </button>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-secondary"
+                                            data-bs-dismiss="modal">Close</button>
+                                        <button type="submit" class="btn btn-primary">Save Shift</button>
+                                    </div>
+                                </div>
                             </div>
                             <div id="form-loader" class="chhj-hide" style="display: none !important;">
                                 <span class="loader-message"></span>
@@ -102,6 +110,7 @@
                 <div class="chhj-loader chhj-loader-segment"></div>
                 <div class="chhj-loader-text">Loading schedule data</div>
                 <div class="chhj-loader-details">Please wait while we fetch all necessary information</div>
+                <div class="chhj-loader-status"></div>
             </div>
         </div>
 
@@ -120,7 +129,11 @@
                             <div class="publish-stats">
                                 <div class="stats-loader chhj-hide">
                                     <div class="chhj-loader chhj-loader-segment"></div>
-                                    <p>Refreshing shift data...</p>
+                                    <p class="text-center">
+                                        Refreshing shift data...<br/>
+                                        <span class="chhj-loader-status"></span>
+                                    </p>
+
                                 </div>
                                 <div class="stats-content">
                                     <p>Publish: <span id="publishCount">0</span></p>
@@ -183,7 +196,11 @@
                             <div class="copy-stats">
                                 <div class="stats-loader chhj-hide">
                                     <div class="chhj-loader chhj-loader-segment"></div>
-                                    <p>Analyzing shifts to copy...</p>
+                                    <p class="text-center">
+                                        Analyzing shifts to copy...<br/>
+                                        <span class="chhj-loader-status"></span>
+                                    </p>
+                                    
                                 </div>
                                 <div class="stats-content">
                                     <p>Shifts to copy: <span id="shiftsCount">0</span></p>

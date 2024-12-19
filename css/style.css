@@ -498,7 +498,8 @@
 }
 
 .hunkpro-unavailable-regular {
-    background-color: #E8E8E8 !important;
+    /* background-color: #E8E8E8 !important; */
+    background-color: #B0BEC5 !important;
     border-color: #D3D3D3 !important;
     color: #666 !important;
     opacity: 0.85 !important;
@@ -749,6 +750,14 @@
     margin-top: 0.5rem;
     color: #666;
     font-size: 0.875rem;
+}
+
+.chhj-loader-status {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #666;
+    font-style: italic;
+    min-height: 1rem;
 }
 
 /* Center the loader in the content box */
