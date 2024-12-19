@@ -83,8 +83,16 @@
                         <div class="modal-footer">
                             <div id="form-error"></div>
                             <div id="form-options">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                <button type="submit" class="btn btn-primary">Save Shift</button>
+                                <div class="d-flex justify-content-between w-100">
+                                    <button type="button" id="delete-shift-btn" class="btn btn-danger me-2 chhj-hide">
+                                        <span class="material-icons" style="font-size: 18px;">delete</span>
+                                    </button>
+                                    <div class="d-flex gap-2">
+                                        <button type="button" class="btn btn-secondary"
+                                            data-bs-dismiss="modal">Close</button>
+                                        <button type="submit" class="btn btn-primary">Save Shift</button>
+                                    </div>
+                                </div>
                             </div>
                             <div id="form-loader" class="chhj-hide" style="display: none !important;">
                                 <span class="loader-message"></span>
