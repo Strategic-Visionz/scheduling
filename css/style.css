@@ -752,6 +752,14 @@
     font-size: 0.875rem;
 }
 
+.chhj-loader-status {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: #666;
+    font-style: italic;
+    min-height: 1rem;
+}
+
 /* Center the loader in the content box */
 .chhj-loader-content .chhj-loader {
     margin: 0 auto;

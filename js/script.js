@@ -948,6 +948,7 @@ window.HunkProScheduler = {
     },
 
     fetchTagsData: function () {
+        this.updateLoadingStatus('Fetching tags data...');
         return CacheUtility.fetchWithCache({
             cacheKey: 'tagsData',
             cacheDuration: 3600000, // 1 hour
@@ -959,6 +960,7 @@ window.HunkProScheduler = {
             apiCall: async () => {
                 // Helper function to fetch a single page
                 const fetchPage = async (page) => {
+                    this.updateLoadingStatus(`Fetching tags data - Page ${page}`);
                     console.log(`Tags Data ::: fetchPage ${page}`);
                     const response = await $.ajax({
                         url: "https://api.tadabase.io/api/v1/data-tables/q3kjZVj6Vb/records",
@@ -981,16 +983,22 @@ window.HunkProScheduler = {
                 let currentPage = 1;
                 let totalPages = 1;
 
+                this.updateLoadingStatus(`Fetching tags data - Page ${currentPage} of _ ( _ of _ items)`);
+
                 // First request to get initial data and total pages
                 const firstPageData = await fetchPage(currentPage);
                 totalPages = firstPageData.total_pages;
                 allItems = [...firstPageData.items];
+                const totalItems = firstPageData.total_items;
+
+                this.updateLoadingStatus(`Fetching tags data - Page ${currentPage} of ${totalPages} (${allItems.length} of ${totalItems} items)`);
 
                 // Fetch remaining pages if any
                 while (currentPage < totalPages) {
                     currentPage++;
                     const nextPageData = await fetchPage(currentPage);
                     allItems = [...allItems, ...nextPageData.items];
+                    this.updateLoadingStatus(`Fetching tags data - Page ${currentPage} of ${totalPages} (${allItems.length} of ${totalItems} items)`);
                 }
 
                 return allItems;
@@ -1031,10 +1039,34 @@ window.HunkProScheduler = {
         }
     },
 
+    updateLoadingStatus: function (message) {
+        // const statusElement = document.querySelector('.chhj-loader-status');
+        // if (statusElement) {
+        //     statusElement.textContent = message;
+        // }
+        // Find all status elements
+        const statusElements = document.querySelectorAll('.chhj-loader-status');
+
+        if (!statusElements.length) {
+            console.warn('No loader status elements found');
+            return;
+        }
+
+        // Update each status element
+        statusElements.forEach(element => {
+            // Only update if element exists and is visible
+            if (element ) {
+                element.textContent = message;
+            }
+        });
+    },
+
     init: async function () {
         this.showFullScreenLoader(); // Show loader before starting initialization
 
         try {
+            this.updateLoadingStatus('Starting initialization...');
+
             // Add jQuery dependency before FullCalendar
             await new Promise((resolve) => {
                 const jqueryScript = document.createElement('script');
@@ -1043,7 +1075,7 @@ window.HunkProScheduler = {
                 document.head.appendChild(jqueryScript);
             });
 
-
+            this.updateLoadingStatus('Loading calendar component...');
 
             // Load FullCalendar
             await new Promise((resolve) => {
@@ -1068,7 +1100,12 @@ window.HunkProScheduler = {
                 this.fetchEmployees()
             ]);
 
+            this.updateLoadingStatus('Initializing calendar...');
+
             this.initializeCalendar(employees);
+
+
+            this.updateLoadingStatus('Loading initial schedule data...');
 
             // Makes sure that the refresh event finishes
             const refreshPromise = new Promise((resolve, reject) => {
@@ -1130,6 +1167,7 @@ window.HunkProScheduler = {
     },
 
     fetchEmployees: function () {
+        this.updateLoadingStatus('Fetching employee data...');
         return CacheUtility.fetchWithCache({
             cacheKey: 'employeesData',
             cacheDuration: 1800000, // 30 minutes
@@ -1176,16 +1214,22 @@ window.HunkProScheduler = {
                 let currentPage = 1;
                 let totalPages = 1;
 
+                this.updateLoadingStatus(`Fetching employees data - Page ${currentPage} of _ ( _ of _ items)`);
+
                 // First request to get initial data and total pages
                 const firstPageData = await fetchPage(currentPage);
                 totalPages = firstPageData.total_pages;
                 allItems = [...firstPageData.items];
+                const totalItems = firstPageData.total_items;
+
+                this.updateLoadingStatus(`Fetching employees data - Page ${currentPage} of ${totalPages} (${allItems.length} of ${totalItems} items)`);
 
                 // Fetch remaining pages if any
                 while (currentPage < totalPages) {
                     currentPage++;
                     const nextPageData = await fetchPage(currentPage);
                     allItems = [...allItems, ...nextPageData.items];
+                    this.updateLoadingStatus(`Fetching employees data - Page ${currentPage} of ${totalPages} (${allItems.length} of ${totalItems} items)`);
                 }
 
                 return allItems;
@@ -1215,6 +1259,7 @@ window.HunkProScheduler = {
 
 
     fetchSchedules: function () {
+        this.updateLoadingStatus('Fetching schedule data...');
         const dateInfo = DateUtility.getViewDateInfo(this.calendar.view);
         // console.log('fetchSchedules ::: dateInfo', dateInfo);
         const startDate = dateInfo.startStr;
@@ -1267,16 +1312,23 @@ window.HunkProScheduler = {
                 let currentPage = 1;
                 let totalPages = 1;
 
+                this.updateLoadingStatus(`Fetching schedule data - Page ${currentPage} of _ ( _ of _ items)`);
+
                 // First request to get initial data and total pages
                 const firstPageData = await fetchPage(currentPage);
                 totalPages = firstPageData.total_pages;
                 allItems = [...firstPageData.items];
+                const totalItems = firstPageData.total_items;
+
+                this.updateLoadingStatus(`Fetching schedule data - Page ${currentPage} of ${totalPages} (${allItems.length} of ${totalItems} items)`);
+
 
                 // Fetch remaining pages if any
                 while (currentPage < totalPages) {
                     currentPage++;
                     const nextPageData = await fetchPage(currentPage);
                     allItems = [...allItems, ...nextPageData.items];
+                    this.updateLoadingStatus(`Fetching schedule data - Page ${currentPage} of ${totalPages} (${allItems.length} of ${totalItems} items)`);
                 }
 
                 // Process all collected items
@@ -1336,6 +1388,7 @@ window.HunkProScheduler = {
         });
     },
     fetchAvailability: function () {
+        this.updateLoadingStatus('Fetching availability data...');
         const dateInfo = DateUtility.getViewDateInfo(this.calendar.view);
 
         // Add buffer days
@@ -1407,16 +1460,22 @@ window.HunkProScheduler = {
                 let currentPage = 1;
                 let totalPages = 1;
 
+                this.updateLoadingStatus(`Fetching availability data - Page ${currentPage} of _ ( _ of _ items)`);
+
                 // First request to get initial data and total pages
                 const firstPageData = await fetchPage(currentPage);
                 totalPages = firstPageData.total_pages;
                 allItems = [...firstPageData.items];
+                const totalItems = firstPageData.total_items;
+
+                this.updateLoadingStatus(`Fetching availability data - Page ${currentPage} of ${totalPages} (${allItems.length} of ${totalItems} items)`);
 
                 // Fetch remaining pages if any
                 while (currentPage < totalPages) {
                     currentPage++;
                     const nextPageData = await fetchPage(currentPage);
                     allItems = [...allItems, ...nextPageData.items];
+                    this.updateLoadingStatus(`Fetching availability data - Page ${currentPage} of ${totalPages} (${allItems.length} of ${totalItems} items)`);
                 }
 
                 // Process all collected items
@@ -1459,6 +1518,7 @@ window.HunkProScheduler = {
         });
     },
     fetchRegularDayOffs: function () {
+        this.updateLoadingStatus('Fetching regular day offs data...');
         const dateInfo = DateUtility.getViewDateInfo(this.calendar.view);
         const bufferStart = DateUtility.subtractDays(dateInfo.start, 7);
         const bufferEnd = DateUtility.addDays(dateInfo.end, 7);
@@ -1527,16 +1587,22 @@ window.HunkProScheduler = {
                 let currentPage = 1;
                 let totalPages = 1;
 
+                this.updateLoadingStatus(`Fetching regular day offs data - Page ${currentPage} of _ ( _ of _ items)`);
+
                 // First request to get initial data and total pages
                 const firstPageData = await fetchPage(currentPage);
                 totalPages = firstPageData.total_pages;
                 allItems = [...firstPageData.items];
+                const totalItems = firstPageData.total_items;
+
+                this.updateLoadingStatus(`Fetching regular day offs data data - Page ${currentPage} of ${totalPages} (${allItems.length} of ${totalItems} items)`);
 
                 // Fetch remaining pages if any
                 while (currentPage < totalPages) {
                     currentPage++;
                     const nextPageData = await fetchPage(currentPage);
                     allItems = [...allItems, ...nextPageData.items];
+                    this.updateLoadingStatus(`Fetching regular day offs data data - Page ${currentPage} of ${totalPages} (${allItems.length} of ${totalItems} items)`);
                 }
 
                 let availability = [];
@@ -1875,7 +1941,7 @@ window.HunkProScheduler = {
     loadData: async function () {
         try {
             // First fetch employees since we need them to initialize the calendar
-            const employees = await this.fetchEmployees();
+            // const employees = await this.fetchEmployees();
 
             // Initialize calendar before fetching schedules
             this.initializeCalendar(employees);

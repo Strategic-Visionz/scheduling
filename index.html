@@ -110,6 +110,7 @@
                 <div class="chhj-loader chhj-loader-segment"></div>
                 <div class="chhj-loader-text">Loading schedule data</div>
                 <div class="chhj-loader-details">Please wait while we fetch all necessary information</div>
+                <div class="chhj-loader-status"></div>
             </div>
         </div>
 
@@ -128,7 +129,11 @@
                             <div class="publish-stats">
                                 <div class="stats-loader chhj-hide">
                                     <div class="chhj-loader chhj-loader-segment"></div>
-                                    <p>Refreshing shift data...</p>
+                                    <p class="text-center">
+                                        Refreshing shift data...<br/>
+                                        <span class="chhj-loader-status"></span>
+                                    </p>
+
                                 </div>
                                 <div class="stats-content">
                                     <p>Publish: <span id="publishCount">0</span></p>
@@ -191,7 +196,11 @@
                             <div class="copy-stats">
                                 <div class="stats-loader chhj-hide">
                                     <div class="chhj-loader chhj-loader-segment"></div>
-                                    <p>Analyzing shifts to copy...</p>
+                                    <p class="text-center">
+                                        Analyzing shifts to copy...<br/>
+                                        <span class="chhj-loader-status"></span>
+                                    </p>
+                                    
                                 </div>
                                 <div class="stats-content">
                                     <p>Shifts to copy: <span id="shiftsCount">0</span></p>
